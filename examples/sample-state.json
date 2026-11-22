@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "revision": 4,
+  "updatedAt": "2026-11-21T23:04:27.727Z",
+  "races": [
+    {
+      "id": "bac6c9ae-ac10-4d4c-bf00-df2c1e09006c",
+      "date": "2026-11-22",
+      "venue": "京都",
+      "number": 11,
+      "name": "サンプルステークス",
+      "surface": "芝",
+      "distance": 1600,
+      "startTime": "15:40",
+      "headCount": 18,
+      "status": "live",
+      "picks": [
+        {
+          "mark": "◎",
+          "number": 6
+        },
+        {
+          "mark": "○",
+          "number": 7
+        },
+        {
+          "mark": "▲",
+          "number": 18
+        }
+      ],
+      "tickets": [
+        {
+          "id": "c262287a-565e-4652-82f3-500653819d80",
+          "type": "trio",
+          "numbers": [
+            6,
+            7,
+            9
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "acba2f2c-dd66-4869-9e0a-da6b6523d500",
+          "type": "trio",
+          "numbers": [
+            6,
+            7,
+            11
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "73f380f4-8320-458d-a54c-0a7b7679e333",
+          "type": "trio",
+          "numbers": [
+            6,
+            7,
+            13
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "c477c10e-a249-4dbe-abc8-e115d15b551b",
+          "type": "trio",
+          "numbers": [
+            6,
+            7,
+            16
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "a40b5807-a98e-4f37-ad4c-dca08c6b71c8",
+          "type": "trio",
+          "numbers": [
+            6,
+            9,
+            18
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "a635861d-6ca5-477b-b73d-7c87699f09c0",
+          "type": "trio",
+          "numbers": [
+            6,
+            11,
+            18
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "b85425d8-5bb9-485d-81da-5ef961ef6d4d",
+          "type": "trio",
+          "numbers": [
+            6,
+            13,
+            18
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        },
+        {
+          "id": "f0d8d94f-d531-4d96-ab2c-8852ffa52790",
+          "type": "trio",
+          "numbers": [
+            6,
+            16,
+            18
+          ],
+          "amount": 100,
+          "source": "paste",
+          "createdAt": "2026-11-21T23:04:27.726Z",
+          "updatedAt": "2026-11-21T23:04:27.726Z"
+        }
+      ],
+      "result": {
+        "confirmed": false,
+        "order": [],
+        "dividends": [],
+        "complete": false,
+        "manualPayout": null,
+        "note": "",
+        "adjustments": []
+      }
+    }
+  ],
+  "display": {
+    "raceId": "bac6c9ae-ac10-4d4c-bf00-df2c1e09006c",
+    "ticketsVisible": true,
+    "mode": "formation",
+    "page": 0,
+    "balanceVisible": false,
+    "countdown": false,
+    "effectEnabled": true,
+    "effect": null
+  }
+}

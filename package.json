@@ -1,0 +1,21 @@
+{
+  "name": "keiba-streaming",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "宝土蓮華の競馬同時視聴用ローカルOBSドック＆透明オーバーレイ",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.js",
+    "build:pages": "node scripts/build-pages.js",
+    "check:publish": "node scripts/check-publish.js"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.8"
+  }
+}

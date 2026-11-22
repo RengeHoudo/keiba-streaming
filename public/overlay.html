@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>競馬配信オーバーレイ | 宝土蓮華</title><link rel="stylesheet" href="/style.css"><script type="module" src="/overlay.js"></script></head>
+<body class="overlay-body"><main id="overlay-stage" class="overlay-stage">
+  <header class="race-banner"><div class="race-heading"><span id="overlay-venue"></span><h1 id="overlay-name"></h1></div><div id="overlay-meta" class="race-info"></div></header>
+  <section id="ticket-panel" class="overlay-panel ticket-panel"><header><h2>購入馬券</h2><span id="overlay-type"></span></header><div id="overlay-tickets" class="overlay-tickets"></div><footer><strong id="overlay-total"></strong><span id="overlay-page"></span></footer></section>
+  <section class="overlay-panel status-panel"><header><h2>レース状況</h2><span id="overlay-date"></span></header><div id="overlay-status" class="race-status"></div><div id="overlay-countdown" class="countdown" hidden></div><div id="overlay-picks" class="overlay-picks"></div><div id="win-effect" class="win-effect" hidden><span>✦</span><strong>的中！</strong><small>HIT!</small></div></section>
+  <section id="balance-panel" class="overlay-panel balance-panel" hidden><div><span id="balance-date"></span><strong>本日の収支</strong></div><div><span>投資</span><strong id="overlay-investment"></strong></div><div><span id="payout-label">確定払戻</span><strong id="overlay-payout"></strong></div><div><span id="profit-label">収支</span><strong id="overlay-profit"></strong></div></section>
+</main></body></html>

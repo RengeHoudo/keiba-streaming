@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>競馬配信コントロール | 宝土蓮華</title><link rel="stylesheet" href="/style.css"><script type="module" src="/control.js"></script></head>
+<body class="control-body">
+<main class="dock">
+  <header class="dock-brand"><span class="eyebrow">RENGE LIVE / RACING DESK</span><h1>競馬配信コントロール</h1><span class="brand-name">宝土蓮華</span></header>
+  <div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection">接続中…</span><span id="sync-time"></span></div>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <section id="browser-note" class="browser-note" hidden><strong>ブラウザ版</strong><p>記録はこのブラウザに保存され、GitHubには送信されません。同じブラウザの別タブで配信画面と同期します。大切な記録はJSON保存でバックアップしてください。</p><p>OBSで配信する場合は<a href="https://github.com/RengeHoudo/keiba-streaming#ローカル版の起動" target="_blank" rel="noopener">ローカル版</a>をご利用ください。別のブラウザ・端末・OBSとの記録共有や、JRAの直接取得には対応していません。</p><button id="browser-demo" class="secondary">架空のサンプルで試す</button></section>
+  <section class="race-selector"><label for="race-select">配信するレース</label><div class="inline"><select id="race-select" aria-label="配信するレース"></select><button id="new-race" class="square" title="レースを追加" aria-label="レースを追加">＋</button></div><p id="race-meta" class="muted"></p><button data-open="jra-details" class="quiet jra-shortcut">JRAからレース情報を取得</button><p id="race-source" class="hint" hidden></p></section>
+  <section class="quick-controls" aria-label="配信中の操作">
+    <div class="section-label"><h2>レース状態</h2><span>ON AIR</span></div>
+    <div id="status-buttons" class="segments three"><button data-status="before">発走前</button><button data-status="live">実況中</button><button data-status="final">確定</button></div>
+    <div class="section-label"><h2>購入馬券の表示</h2><span id="ticket-count">0点</span></div>
+    <div class="segments three display-modes"><button data-mode="compact">まとめて表示</button><button data-mode="list">一覧</button><button data-mode="formation">フォーメーション</button></div>
+    <label class="toggle-row"><span>ページを自動で切替</span><input id="auto-page" type="checkbox" role="switch" checked></label>
+    <div class="inline rotation-controls"><label for="page-interval">切替間隔</label><select id="page-interval"><option value="5">5秒</option><option value="8">8秒</option><option value="10" selected>10秒</option><option value="15">15秒</option><option value="20">20秒</option><option value="30">30秒</option><option value="60">60秒</option></select></div>
+    <div class="pagination"><button id="page-prev" aria-label="前の表示ページ">前へ</button><span id="page-label">1 / 1</span><button id="page-next" aria-label="次の表示ページ">次へ</button></div>
+    <p id="compact-help" class="hint">ワイド：② − ⑤ ⑥ ⑧（3点）／3連複：① − ⑥ − ⑦ ⑧（2点）。馬単・3連単は矢印の順が着順です。同じ券種・金額だけをまとめ、全券種を続けて表示します。</p>
+    <p id="formation-note" class="hint" hidden></p>
+    <label class="toggle-row"><span>購入馬券を表示</span><input id="tickets-visible" type="checkbox" role="switch" checked></label>
+    <label class="toggle-row"><span>本日の収支を表示</span><input id="balance-visible" type="checkbox" role="switch"></label>
+    <div class="effect-section"><button id="effect-play" class="gold">✦ 的中演出を実行</button><div class="inline"><button id="effect-stop" class="quiet">演出を停止</button><label class="check-label"><input id="effect-enabled" type="checkbox" checked>演出ON</label></div></div>
+    <div class="segments shortcuts"><button data-open="ticket-details">馬券を登録</button><button data-open="paste-details">買い目を貼り付け</button></div>
+    <button data-open="result-details" class="secondary result-shortcut">着順を入力して的中判定</button>
+  </section>
+  <section class="purchase-summary"><div><span class="muted">選択レースの購入記録</span><strong id="purchase-total">0点 · 0円</strong></div><button data-open="records-details" class="quiet">編集</button></section>
+
+  <details id="jra-details"><summary>JRAのレース情報を取得<span class="summary-sub">開催日からレースを選択</span></summary><div class="details-body">
+    <label>取得する開催日<input id="jra-date" type="date" required></label><button id="jra-fetch" class="secondary">開催レースを取得</button>
+    <p id="jra-message" class="hint" role="status">JRA公式の開催日程から予定情報を取得します。</p>
+    <div id="jra-selection" hidden><label>取り込むレース<select id="jra-race"></select></label><p id="jra-preview" class="jra-preview"></p><p id="jra-notice" class="hint"></p><a id="jra-source" target="_blank" rel="noopener noreferrer">取得元のJRA開催日程を開く</a><button id="jra-import" class="primary" disabled>このレースを追加して選択</button></div>
+  </div></details>
+  <details id="race-details"><summary>レース情報・予想印</summary><div class="details-body">
+    <form id="race-form">
+      <div class="form-grid"><label>開催日<input name="date" type="date" required></label><label>開催場<input name="venue" maxlength="16" placeholder="京都"></label><label>R番号<input name="number" type="number" min="1" max="12" required></label><label>出走頭数<input name="headCount" type="number" min="3" max="18" required></label></div>
+      <label>レース名<input name="name" maxlength="40" placeholder="レース名を入力"></label>
+      <div class="form-grid"><label>コース<select name="surface"><option>芝</option><option>ダート</option><option>障害</option><option value="">未入力</option></select></label><label>距離 (m)<input name="distance" type="number" min="100" max="10000" placeholder="1600"></label><label>発走時刻<input name="startTime" type="time"></label></div>
+      <fieldset><legend>予想印・馬番</legend><div id="pick-fields" class="pick-fields"></div></fieldset>
+      <button class="primary" type="submit">レース情報を保存</button>
+    </form>
+    <label class="check-label"><input id="countdown" type="checkbox">予定時刻までのカウントダウン</label><p class="hint">予定時刻を過ぎると「発走予定時刻」と表示。遅延の判定は行いません。</p>
+    <button id="delete-race" class="danger quiet">このレースを削除</button>
+  </div></details>
+
+  <details id="ticket-details"><summary>馬券を登録 <span class="summary-sub">馬番をクリック</span></summary><div class="details-body">
+    <p class="hint">購入済み馬券の記録です。このアプリで馬券の購入はできません。</p>
+    <form id="ticket-form"><label>券種<select id="ticket-type"></select></label><p id="selection-help" class="hint"></p><div id="horse-buttons" class="horse-grid"></div><div id="selected-horses" class="selected-horses" aria-live="polite"></div><label>1点の購入額 (円)<input id="ticket-amount" type="number" min="100" max="100000000" step="100" value="100" required></label><button id="ticket-submit" class="primary" type="submit">購入記録に追加</button><button id="cancel-edit" type="button" class="quiet" hidden>編集をやめる</button></form>
+    <p class="hint">同じ券種・買い目の重複登録はできません。金額を増やす場合は既存の記録を編集してください。</p>
+  </div></details>
+
+  <details id="paste-details"><summary>買い目を貼り付け <span class="summary-sub">プレビュー後に登録</span></summary><div class="details-body">
+    <label for="paste-text">馬券テキスト</label><textarea id="paste-text" rows="7" placeholder="京都（日）11R３連複&#10;06 － 07 － 09  100円&#10;06-07-11 100円&#10;06 － 09 － 18"></textarea>
+    <label>金額未記載行の既定額 (円)<input id="paste-default" type="number" min="100" step="100" value="100"></label><button id="paste-preview" class="secondary">解析プレビュー</button>
+    <div id="paste-results" aria-live="polite"></div><label id="paste-confirm-label" class="check-label" hidden><input id="paste-confirm" type="checkbox">エラー・重複・無視する行と、既定額の適用を確認しました</label><button id="paste-register" class="primary" hidden disabled>確認した買い目を登録</button>
+  </div></details>
+
+  <details id="records-details"><summary>登録済み馬券 <span id="records-count" class="summary-sub"></span></summary><div class="details-body">
+    <div id="ticket-records"></div><div class="pagination"><button id="records-prev">前へ</button><span id="records-page"></span><button id="records-next">次へ</button></div>
+    <label>選択した買い目の一括金額 (円)<input id="bulk-amount" type="number" min="100" step="100" value="100"></label><button id="bulk-save" class="secondary">選択した金額を更新</button><div class="inline"><button id="undo" class="quiet">直前の操作を取り消す</button><button id="clear-tickets" class="quiet danger">馬券を全削除</button></div>
+  </div></details>
+
+  <details id="result-details"><summary>着順・的中判定・払戻<span class="summary-sub">配当未入力でも当たり・外れを確認</span></summary><div class="details-body">
+    <form id="result-form"><div class="form-grid thirds"><label>1着<input name="first" type="number" min="1" max="18"></label><label>2着<input name="second" type="number" min="1" max="18"></label><label>3着<input name="third" type="number" min="1" max="18"></label></div>
+      <button id="save-order" type="button" class="primary">着順だけ保存して判定</button>
+      <p class="hint">1〜3着の馬番を入力すると下に判定を表示します。着順の保存だけでは払戻・収支を確定せず、的中演出も自動再生しません。同着・取消・返還は通常の着順判定の対象外です。</p>
+      <section class="judgement-panel" aria-label="購入馬券の的中判定"><p id="judgement-summary" role="status"></p><label>表示する判定<select id="judgement-filter"><option value="all">すべて</option><option value="win">的中のみ</option><option value="lose">不的中のみ</option><option value="pending">未判定のみ</option></select></label><div id="judgement-tickets"></div><div class="pagination"><button id="judgement-prev" type="button">前へ</button><span id="judgement-page"></span><button id="judgement-next" type="button">次へ</button></div></section>
+      <label>100円あたりの確定配当<textarea name="dividends" rows="4" placeholder="3連複 06-07-09 1,200円&#10;単勝 06 250円"></textarea></label>
+      <p class="hint">券種・買い目・配当を1行ずつ入力。全ての的中した購入記録の配当が必要です。オッズは入力しません。</p>
+      <label class="check-label"><input name="complete" type="checkbox">上位3着と必要な配当をすべて確認済み</label>
+      <label>手動払戻総額 (円・通常は空欄)<input name="manualPayout" type="number" min="0" max="1000000000000" step="1" placeholder="未入力"></label><p class="hint">同着・返還・例外は、このレース全体の払戻を上書きできます。0円は明示的な不的中・払戻なしの記録です。</p>
+      <label>手動修正の理由・補足<input name="note" maxlength="300" placeholder="返還、同着、確認した払戻額など"></label>
+      <label class="check-label"><input name="confirmed" type="checkbox">この結果を確定記録として保存</label><p class="hint">上部の「確定」は配信上の表示のみです。払戻の確定はこのチェックで行います。購入記録を変更すると再確認が必要になります。</p><button type="submit" class="primary">結果・払戻を保存</button>
+    </form><div id="result-status" class="result-status"></div><div id="adjustments" class="hint"></div>
+  </div></details>
+
+  <details id="balance-details"><summary>日別の収支・履歴</summary><div class="details-body"><label>集計する日付<input id="history-date" type="date"></label><div id="day-balance"></div><div id="race-history"></div><p class="hint">配信には選択レースの開催日分を表示します。未確定・払戻待ちのレースがある間は収支を「暫定」と表示します。</p></div></details>
+  <details id="backup-details"><summary>バックアップ・OBS設定</summary><div class="details-body"><div class="segments"><a id="export-json" class="button" href="/api/export" download>JSON保存</a><a id="export-csv" class="button" href="/api/export.csv" download>CSV保存</a></div><label>JSONバックアップから復元<input id="import-file" type="file" accept=".json,application/json"></label><button id="import-button" class="secondary">内容を確認して復元</button><p class="hint">復元は全レースを置き換えます。CSVは集計用出力、復元にはJSONを使用します。</p><label>OBSカスタムブラウザドック<input id="control-url" readonly></label><label>OBSブラウザソース（1920 × 1080）<input id="overlay-url" readonly></label><a id="overlay-link" href="/overlay" target="_blank" rel="noopener">オーバーレイを別画面で開く</a><p class="hint">コメント欄・モデル領域は完全透過です。背景・モデル・コメントはOBSの別ソースで配置してください。</p></div></details>
+  <footer class="dock-footer">RENGE RACING DESK <span>LOCAL / 1920 × 1080</span></footer>
+</main>
+<dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">操作の確認</h2><p id="confirm-message"></p><div class="segments"><button value="cancel">キャンセル</button><button value="confirm" class="primary">実行する</button></div></form></dialog>
+</body></html>
