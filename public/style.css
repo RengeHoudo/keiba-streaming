@@ -757,53 +757,59 @@ html:has(.overlay-body){
   padding-top:170px
 }
 .status-panel{
-  left:750px;
+  left:1380px;
   top:152px;
-  width:610px;
-  height:338px
+  width:510px;
+  height:260px
 }
 .status-panel>header{
-  height:73px;
+  height:58px;
   background:transparent;
-  padding:0 31px
+  padding:0 24px
+}
+.status-panel h2{
+  font-size:26px
 }
 .status-panel>header>span{
   font-size:20px;
   color:#aabfcd
 }
 .race-status{
-  margin:18px auto 0;
-  width:424px;
-  height:112px;
-  border-radius:18px;
+  margin:10px auto 0;
+  width:370px;
+  height:82px;
+  border-radius:14px;
   background:#344e62;
   display:flex;
   align-items:center;
   justify-content:center;
   font-weight:800;
-  font-size:58px;
+  font-size:44px;
   letter-spacing:.08em
 }
 .race-status.live{
   background:#862a49
+}
+.race-status.pending{
+  background:#76551f
 }
 .race-status.final{
   background:#236d5d
 }
 .overlay-picks{
   display:flex;
-  gap:23px;
+  gap:18px;
   justify-content:center;
-  font-size:37px;
+  font-size:32px;
   font-weight:700;
-  margin-top:27px
+  margin-top:18px
 }
 .overlay-picks span{
   white-space:nowrap
 }
 .overlay-picks.many{
-  gap:14px;
-  font-size:29px
+  gap:10px;
+  font-size:26px
 }
 .countdown{
   font-size:20px;
@@ -920,7 +926,7 @@ html:has(.overlay-body){
 }
 .win-effect{
   position:absolute;
-  inset:75px 0 0;
+  inset:58px 0 0;
   background:radial-gradient(ellipse at center,#79551cf5,#251e17f7);
   display:flex;
   align-items:center;
@@ -931,7 +937,7 @@ html:has(.overlay-body){
   animation:hit-flash 4s ease-in-out both
 }
 .win-effect strong{
-  font-size:89px;
+  font-size:72px;
   text-shadow:0 0 24px #ffce6366;
   white-space:nowrap
 }

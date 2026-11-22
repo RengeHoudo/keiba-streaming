@@ -10,7 +10,7 @@
   <section class="race-selector"><label for="race-select">配信するレース</label><div class="inline"><select id="race-select" aria-label="配信するレース"></select><button id="new-race" class="square" title="レースを追加" aria-label="レースを追加">＋</button></div><p id="race-meta" class="muted"></p><button data-open="jra-details" class="quiet jra-shortcut">JRAからレース情報を取得</button><p id="race-source" class="hint" hidden></p></section>
   <section class="quick-controls" aria-label="配信中の操作">
     <div class="section-label"><h2>レース状態</h2><span>ON AIR</span></div>
-    <div id="status-buttons" class="segments three"><button data-status="before">発走前</button><button data-status="live">実況中</button><button data-status="final">確定</button></div>
+    <div id="status-buttons" class="segments"><button data-status="before">発走前</button><button data-status="live">レース中</button><button data-status="pending">確定待ち</button><button data-status="final">確定</button></div>
     <div class="section-label"><h2>購入馬券の表示</h2><span id="ticket-count">0点</span></div>
     <div class="segments three display-modes"><button data-mode="compact">まとめて表示</button><button data-mode="list">一覧</button><button data-mode="formation">フォーメーション</button></div>
     <label class="toggle-row"><span>ページを自動で切替</span><input id="auto-page" type="checkbox" role="switch" checked></label>

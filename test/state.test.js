@@ -13,6 +13,20 @@ test('安全な初期値：収支非表示、購入記録なし、払戻未確�
   assert.equal(raceBalance(state.races[0]).payout, null);
   assert.deepEqual(validateState(state), state);
 });
+test('4段階のレース状態を保存・復元でき、切替だけでは馬券や払戻を変更しない', () => {
+  let s = sampleState();
+  const tickets = structuredClone(s.races[0].tickets);
+  const result = structuredClone(s.races[0].result);
+  for (const status of ['before', 'live', 'pending', 'final']) {
+    s = act(s, 'race.status', { status });
+    s = act(s, 'state.import', { state: JSON.parse(JSON.stringify(s)) });
+    assert.equal(s.races[0].status, status);
+    assert.deepEqual(s.races[0].tickets, tickets);
+    assert.deepEqual(s.races[0].result, result);
+    assert.equal(raceBalance(s.races[0]).payout, null);
+  }
+  assert.throws(() => act(s, 'race.status', { status: 'unknown' }), /状態が不正/);
+});
 test('重複のバッチは全体を拒否し、既存の金額を勝手に統合しない', () => {
   const s = sampleState(); const original = structuredClone(s);
   assert.throws(() => act(s, 'tickets.add', { tickets: [{ type: 'win', numbers: [1], amount: 100 }, ...sampleTickets()] }), /登録済み/);

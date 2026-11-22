@@ -8,7 +8,7 @@ export const TYPES = {
   trio: { label: '3連複', size: 3, ordered: false },
   trifecta: { label: '3連単', size: 3, ordered: true },
 };
-export const STATUSES = { before: '発走前', live: '実況中', final: '確定' };
+export const STATUSES = { before: '発走前', live: 'レース中', pending: '確定待ち', final: '確定' };
 export const FALLBACK = 'この買い目はフォーメーションに正確に変換できないため、一覧表示します';
 export const yen = n => `${n.toLocaleString('ja-JP')}円`;
 export const horse = n => String(n).padStart(2, '0');
