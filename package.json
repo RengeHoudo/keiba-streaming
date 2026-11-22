@@ -13,9 +13,11 @@
     "test": "node --test test/*.test.js",
     "check": "node scripts/check.js",
     "build:pages": "node scripts/build-pages.js",
+    "build:jra-api": "node scripts/build-jra-api.js",
     "check:publish": "node scripts/check-publish.js"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "fake-indexeddb": "^6.2.8"
   }
 }

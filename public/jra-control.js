@@ -1,12 +1,7 @@
 import { today } from './domain.js';
-import { $, escapeHTML as esc, BROWSER_MODE } from './shared.js';
+import { $, escapeHTML as esc, getJraSchedule } from './shared.js';
 
 export function setupJra({ getState, send, confirmAction, onImport }) {
-  if (BROWSER_MODE) {
-    $('#jra-date').disabled = true; $('#jra-fetch').hidden = true;
-    $('#jra-message').textContent = 'JRAの直接取得はローカル版で利用できます。ブラウザ版ではレース情報を手入力するか、ローカル版のJSONバックアップを復元してください。';
-    return { render() {} };
-  }
   let schedule = null;
   let fetching = false;
   $('#jra-date').value = today();
@@ -29,9 +24,7 @@ export function setupJra({ getState, send, confirmAction, onImport }) {
     $('#jra-fetch').disabled = true; $('#jra-date').disabled = true;
     $('#jra-message').textContent = 'JRAの開催日程を取得しています…'; renderPreview();
     try {
-      const response = await fetch(`/api/jra/races?date=${encodeURIComponent(date)}`, { signal: AbortSignal.timeout(18000) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '情報を取得できませんでした');
+      const data = await getJraSchedule(date);
       schedule = data;
       $('#jra-race').innerHTML = data.races.map((r, i) => `<option value="${i}">${esc(`${r.venue} ${r.number}R ${r.startTime} ${r.name}`)}</option>`).join('');
       $('#jra-message').textContent = `${data.races.length}レース取得 · ${new Date(data.fetchedAt).toLocaleTimeString('ja-JP')}時点${data.cached ? '（5分間のキャッシュ）' : ''}`;
@@ -39,7 +32,7 @@ export function setupJra({ getState, send, confirmAction, onImport }) {
       $('#jra-notice').textContent = data.notice;
       $('#jra-selection').hidden = false;
     } catch (error) {
-      $('#jra-message').textContent = error.name === 'TimeoutError' ? '取得がタイムアウトしました。再取得するか、レース情報を手入力してください。' : error.message === 'Failed to fetch' ? '接続できません。サーバーとインターネット接続を確認してください。' : error.message;
+      $('#jra-message').textContent = error.name === 'TimeoutError' ? '取得がタイムアウトしました。再取得するか、レース情報を手入力してください。' : ['Failed to fetch', 'fetch failed'].includes(error.message) ? 'レース情報の配信先に接続できません。接続状況を確認し、時間をおいて再取得してください。' : error.message;
     } finally { fetching = false; $('#jra-fetch').disabled = false; $('#jra-date').disabled = false; renderPreview(); }
   });
   $('#jra-import').addEventListener('click', async () => {

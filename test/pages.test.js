@@ -36,7 +36,9 @@ test('Pages: 公開ファイルを限定し /keiba-streaming/ 配下でHTMLと�
     }
   }
   assert.match(await readFile(path.join(output, 'transport.js'), 'utf8'), /BROWSER_MODE = true/);
-  assert.doesNotMatch(await readFile(path.join(output, 'transport.js'), 'utf8'), /EventSource|\/api\//);
+  assert.doesNotMatch(await readFile(path.join(output, 'transport.js'), 'utf8'), /EventSource/);
+  const html = await readFile(path.join(output, 'index.html'), 'utf8');
+  assert.match(html, /connect-src 'self' https:\/\/keiba-streaming-jra-api\.iridescentpetal9\.chatgpt\.site;/);
 });
 test('Pages: 想定外のファイルが出力先に混入したら公開ビルドを停止', async () => {
   const output = await mkdtemp(path.join(os.tmpdir(), 'keiba-pages-leak-test-'));

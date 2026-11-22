@@ -76,7 +76,7 @@ export function createJraProvider({ fetchImpl = fetch, now = Date.now, timeoutMs
     try {
       let response;
       for (let redirect = 0; redirect <= 3; redirect++) {
-        response = await fetchImpl(url, { signal, redirect: 'manual', headers: { Accept: 'text/html', 'User-Agent': 'RengeKeibaOBS/1.0 (local race schedule reader)' } });
+        response = await fetchImpl(url, { signal, redirect: 'manual', headers: { Accept: 'text/html', 'User-Agent': 'KeibaStreaming/1.0 (race schedule reader)' } });
         if (response.status < 300 || response.status >= 400) break;
         await response.body?.cancel();
         const target = new URL(response.headers.get('location') ?? '', url);
@@ -93,7 +93,9 @@ export function createJraProvider({ fetchImpl = fetch, now = Date.now, timeoutMs
         assert(size <= 2 * 1024 * 1024, 'JRAの応答が大きすぎるため取得を中止しました');
         chunks.push(chunk);
       }
-      const races = parseCalendar(decodeCalendar(Buffer.concat(chunks), response.headers.get('content-type')), date);
+      const bytes = new Uint8Array(size); let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+      const races = parseCalendar(decodeCalendar(bytes, response.headers.get('content-type')), date);
       return { date, races, sourceUrl, fetchedAt: new Date(now()).toISOString(), notice: JRA_NOTICE };
     } catch (error) {
       if (signal.aborted) throw new Error('JRAへの接続がタイムアウトしました。時間をおいて再取得してください');

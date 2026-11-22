@@ -28,5 +28,6 @@ for (const name of output) {
   scan(`dist/${name}`, await readFile(`dist/${name}`, 'utf8'));
 }
 if (output.length !== PAGE_FILES.length) failures.push('dist: missing publication files');
+if (process.argv.includes('--with-jra-api')) scan('JRA API bundle', await readFile('.qa-data/jra-api-site/worker/index.js', 'utf8'));
 if (failures.length) { console.error(failures.join('\n')); process.exitCode = 1; }
 else console.log(`公開前チェック: OK (${files.length} tracked files + ${output.length} Pages files). design・購入記録・認証情報のファイル除外、既知の秘密情報パターンを確認。`);

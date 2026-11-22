@@ -91,6 +91,7 @@ export async function createApp({ dataDir = path.join(root, 'data'), jraProvider
         '/overlay.js': ['public/overlay.js', 'text/javascript'], '/shared.js': ['public/shared.js', 'text/javascript'],
         '/judgement.js': ['public/judgement.js', 'text/javascript'], '/jra-control.js': ['public/jra-control.js', 'text/javascript'],
         '/transport.js': ['public/transport.js', 'text/javascript'], '/export.js': ['src/export.js', 'text/javascript'],
+        '/jra-client.js': ['src/jra-client.js', 'text/javascript'], '/calendar-url.js': ['src/calendar-url.js', 'text/javascript'],
         '/domain.js': ['src/domain.js', 'text/javascript'], '/style.css': ['public/style.css', 'text/css'],
       };
       const route = routes[url.pathname];

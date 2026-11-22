@@ -6,7 +6,7 @@
   <header class="dock-brand"><span class="eyebrow">RENGE LIVE / RACING DESK</span><h1>競馬配信コントロール</h1><span class="brand-name">宝土蓮華</span></header>
   <div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection">接続中…</span><span id="sync-time"></span></div>
   <div id="notice" class="notice" role="status" hidden></div>
-  <section id="browser-note" class="browser-note" hidden><strong>ブラウザ版</strong><p>記録はこのブラウザに保存され、GitHubには送信されません。同じブラウザの別タブで配信画面と同期します。大切な記録はJSON保存でバックアップしてください。</p><p>OBSで配信する場合は<a href="https://github.com/RengeHoudo/keiba-streaming#ローカル版の起動" target="_blank" rel="noopener">ローカル版</a>をご利用ください。別のブラウザ・端末・OBSとの記録共有や、JRAの直接取得には対応していません。</p><button id="browser-demo" class="secondary">架空のサンプルで試す</button></section>
+  <section id="browser-note" class="browser-note" hidden><strong>ブラウザ版</strong><p>記録はこのブラウザに保存され、GitHubには送信されません。同じブラウザの別タブで配信画面と同期します。大切な記録はJSON保存でバックアップしてください。</p><p>JRAの予定レース情報は下の取得ボタンから利用できます。取得用APIには開催日だけを送ります。</p><p>OBSで配信する場合は<a href="https://github.com/RengeHoudo/keiba-streaming#ローカル版の起動" target="_blank" rel="noopener">ローカル版</a>をご利用ください。別のブラウザ・端末・OBSとは記録を共有しません。</p><button id="browser-demo" class="secondary">架空のサンプルで試す</button></section>
   <section class="race-selector"><label for="race-select">配信するレース</label><div class="inline"><select id="race-select" aria-label="配信するレース"></select><button id="new-race" class="square" title="レースを追加" aria-label="レースを追加">＋</button></div><p id="race-meta" class="muted"></p><button data-open="jra-details" class="quiet jra-shortcut">JRAからレース情報を取得</button><p id="race-source" class="hint" hidden></p></section>
   <section class="quick-controls" aria-label="配信中の操作">
     <div class="section-label"><h2>レース状態</h2><span>ON AIR</span></div>
