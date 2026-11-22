@@ -1,5 +1,6 @@
 import { assert, integer } from './domain.js';
 import { calendarUrl } from './calendar-url.js';
+import { resultQuery, validateJraResult } from './jra-result-data.js';
 
 export function validateSchedule(input, date) {
   const sourceUrl = calendarUrl(date);
@@ -20,6 +21,16 @@ export function validateSchedule(input, date) {
 }
 export function createJraClient({ endpoint, fetchImpl = fetch } = {}) {
   return {
+    async getResult(query) {
+      query = resultQuery(query);
+      const params = new URLSearchParams({ ...query, number: String(query.number) });
+      const response = await fetchImpl(`${endpoint.replace(/\/races$/, '/result')}?${params}`, { signal: AbortSignal.timeout(20000), credentials: 'omit', redirect: 'error', headers: { Accept: 'application/json' } });
+      assert(/application\/json/i.test(response.headers.get('Content-Type') ?? ''), 'JRA結果の配信先から正しい応答がありません');
+      const text = await response.text(); assert(text.length <= 100000, 'JRA結果の応答が大きすぎます');
+      const data = JSON.parse(text);
+      if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error.slice(0, 500) : 'JRA結果を取得できませんでした');
+      return validateJraResult(data, query);
+    },
     async getSchedule(date) {
       calendarUrl(date);
       const response = await fetchImpl(`${endpoint}?date=${encodeURIComponent(date)}`, { signal: AbortSignal.timeout(18000), credentials: 'omit', redirect: 'error', headers: { Accept: 'application/json' } });

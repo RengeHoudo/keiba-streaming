@@ -2,6 +2,7 @@ import { TYPES, STATUSES, FALLBACK, yen, horse, circledHorse, today, parseTicket
 import { $, escapeHTML as esc, setText, connect, requestAction, BROWSER_MODE, controlUrl, overlayUrl } from './shared.js';
 import { setupJudgement, verdictBadge } from './judgement.js';
 import { setupJra } from './jra-control.js';
+import { setupJraResult } from './jra-result-control.js';
 import { exportCsv } from './export.js';
 
 let state = null;
@@ -18,6 +19,7 @@ let ticketPages = [];
 const race = () => state?.races.find(r => r.id === state.display.raceId);
 const judgementUI = setupJudgement({ getRace: race, send });
 const jraUI = setupJra({ getState: () => state, send, confirmAction, onImport: () => { fillRaceForm(); fillResultForm(); openDetails('race-details'); } });
+const jraResultUI = setupJraResult({ getState: () => state, send, onImport: () => { fillRaceForm(); fillResultForm(); } });
 const fields = form => $(form).elements;
 const formField = (form, name) => fields(form).namedItem(name);
 const options = Object.entries(TYPES).map(([value, type]) => `<option value="${value}">${type.label}</option>`).join('');
@@ -107,7 +109,7 @@ function render(next) {
     $('#history-date').value = r.date;
     renderedRaceId = r.id;
   } else if (previous?.races.find(x => x.id === r.id)?.headCount !== r.headCount) renderHorseButtons();
-  renderRecords(); renderBalances(); judgementUI.render(); jraUI.render();
+  renderRecords(); renderBalances(); judgementUI.render(); jraUI.render(); jraResultUI.render();
   const balance = raceBalance(r);
   setText('#result-status', balance.pending ? '払戻未確定・未入力（0円確定ではありません）' : `確定払戻 ${yen(balance.payout)} ／ 収支 ${yen(balance.profit)}`);
   if (previous?.races.find(x => x.id === r.id)?.result.confirmed && !r.result.confirmed) formField('#result-form', 'confirmed').checked = false;

@@ -1,8 +1,10 @@
 import { createJraProvider } from './jra.js';
 import { calendarUrl } from './calendar-url.js';
+import { createJraResultProvider } from './jra-result.js';
+import { resultQuery } from './jra-result-data.js';
 
 export const PAGES_ORIGIN = 'https://rengehoudo.github.io';
-export function createJraWorker({ provider = createJraProvider(), now = Date.now } = {}) {
+export function createJraWorker({ provider = createJraProvider(), resultProvider = createJraResultProvider(), now = Date.now } = {}) {
   const requests = new Map();
   return {
     async fetch(request) {
@@ -20,12 +22,16 @@ export function createJraWorker({ provider = createJraProvider(), now = Date.now
         return new Response(null, { status: 204, headers });
       }
       if (request.method !== 'GET') { headers.set('Allow', 'GET, OPTIONS'); return json(405, { error: 'レース情報の読取専用APIです' }); }
-      if (url.pathname === '/') return json(200, { service: 'keiba-streaming JRA schedule API', app: `${PAGES_ORIGIN}/keiba-streaming/`, endpoint: '/api/jra/races?date=YYYY-MM-DD', note: 'JRA公式の予定情報を読む非公式アプリです。購入記録・APIキーは扱いません。' });
-      if (url.pathname !== '/api/jra/races') return json(404, { error: '見つかりません' });
+      if (url.pathname === '/') return json(200, { service: 'keiba-streaming JRA API', app: `${PAGES_ORIGIN}/keiba-streaming/`, endpoint: '/api/jra/races?date=YYYY-MM-DD', resultEndpoint: '/api/jra/result?date=YYYY-MM-DD&venue=京都&number=11', note: 'JRA公式の予定情報・確定結果を読む非公式アプリです。購入記録・APIキーは扱いません。' });
+      if (!['/api/jra/races', '/api/jra/result'].includes(url.pathname)) return json(404, { error: '見つかりません' });
+      const isResult = url.pathname === '/api/jra/result';
       const date = url.searchParams.get('date');
+      let query;
       try {
-        if ([...url.searchParams.keys()].some(k => k !== 'date') || url.searchParams.getAll('date').length !== 1) throw new Error('開催日だけを指定してください');
+        const keys = isResult ? ['date', 'venue', 'number'] : ['date'];
+        if ([...url.searchParams.keys()].some(k => !keys.includes(k)) || keys.some(k => url.searchParams.getAll(k).length !== 1)) throw new Error('開催日・開催場・レース番号以外は指定できません');
         calendarUrl(date);
+        if (isResult) query = resultQuery({date, venue:url.searchParams.get('venue'), number:Number(url.searchParams.get('number'))});
       } catch (error) { return json(400, { error: error.message }); }
       // Bound per-isolate request accounting and upstream concurrency/cache.
       // Cloudflare supplies this IP header; request bodies are never read.
@@ -38,7 +44,7 @@ export function createJraWorker({ provider = createJraProvider(), now = Date.now
         entry = { start: time, count: 0 }; requests.set(ip, entry);
       }
       if (++entry.count > 30) { headers.set('Retry-After', '60'); return json(429, { error: '取得回数が多いため、1分ほど待って再取得してください' }); }
-      try { return json(200, await provider.getSchedule(date)); }
+      try { return json(200, isResult ? await resultProvider.getResult(query) : await provider.getSchedule(date)); }
       catch (error) { return json(502, { error: error.message || 'JRA情報を取得できませんでした。時間をおいて再取得してください' }); }
     },
   };

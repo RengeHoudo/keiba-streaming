@@ -1,5 +1,6 @@
 import { TYPES, STATUSES, assert, integer, normalize, key, validateAmount, today, raceBalance } from './domain.js';
 import { calendarUrl } from './calendar-url.js';
+import { validateJraResult, validateResultSource, sameRace } from './jra-result-data.js';
 
 const randomUUID = () => globalThis.crypto.randomUUID();
 const timestamp = () => new Date().toISOString();
@@ -25,7 +26,7 @@ export function initialState() {
   const race = newRace();
   return { version: 1, revision: 0, updatedAt: timestamp(), races: [race], display: { raceId: race.id, ticketsVisible: true, mode: 'compact', page: 0, autoPage: true, pageInterval: 10, pageStartedAt: Date.now(), balanceVisible: false, countdown: false, effectEnabled: true, effect: null } };
 }
-function validateResult(result, headCount) {
+function validateResult(result, headCount, identity) {
   assert(result && typeof result === 'object', '結果が不正です');
   assert(Array.isArray(result.order) && result.order.length <= 3, '着順は上位3頭までです');
   result.order.forEach(n => integer(n, 1, headCount, '着順の馬番'));
@@ -39,10 +40,16 @@ function validateResult(result, headCount) {
     return { type: d.type, numbers, amount: integer(d.amount, 1, 1000000000, '100円あたり配当') };
   });
   const manualPayout = result.manualPayout === null ? null : integer(result.manualPayout, 0, 1000000000000, '手動払戻');
+  let source = null;
+  if (result.source != null) {
+    assert(result.source.provider === 'jra-result' && identity && sameRace(result.source, identity), '結果のレースが一致しません');
+    source = {provider:'jra-result',date:identity.date,venue:identity.venue,number:identity.number,url:validateResultSource(result.source.url, identity),fetchedAt:iso(result.source.fetchedAt)};
+    validateJraResult({...identity,available:true,headCount,order:result.order,dividends,sourceUrl:source.url,fetchedAt:source.fetchedAt,notice:''},identity);
+  }
   assert(Array.isArray(result.adjustments) && result.adjustments.length <= 1000, '修正履歴が不正です');
   return {
     confirmed: bool(result.confirmed, '結果確定'), order: [...result.order], dividends,
-    complete: bool(result.complete, '配当確認'), manualPayout,
+    complete: bool(result.complete, '配当確認'), manualPayout, ...(source ? {source} : {}),
     note: text(result.note, 300, '補足'),
     adjustments: result.adjustments.map(a => ({ at: iso(a.at), before: a.before === null ? null : integer(a.before, 0, 1000000000000, '修正前払戻'), after: a.after === null ? null : integer(a.after, 0, 1000000000000, '修正後払戻'), note: text(a.note, 300, '修正理由') })),
   };
@@ -78,7 +85,7 @@ function validateRace(r) {
   return {
     id: id(r.id), date: date(r.date), venue: text(r.venue, 16, '開催場'), number: integer(r.number, 1, 12, 'R番号'),
     name: text(r.name, 40, 'レース名'), surface: r.surface, distance: r.distance === null ? null : integer(r.distance, 100, 10000, '距離'),
-    startTime: r.startTime, headCount, status: r.status, picks, tickets, result: validateResult(r.result, headCount), source,
+    startTime: r.startTime, headCount, status: r.status, picks, tickets, result: validateResult(r.result, headCount, r), source,
   };
 }
 export function validateState(input) {
@@ -134,6 +141,9 @@ export function applyAction(current, action) {
       assert(p.fields && typeof p.fields === 'object', 'レース情報がありません');
       assert(Object.keys(p.fields).every(k => allowed.includes(k)), '更新できない項目です');
       if ('headCount' in p.fields && p.fields.headCount !== race.headCount) race.result.confirmed = false;
+      if (['date', 'venue', 'number', 'headCount'].some(k => k in p.fields && p.fields[k] !== race[k])) {
+        delete race.result.source; race.result.confirmed = false;
+      }
       if (['date', 'venue', 'number', 'name', 'surface', 'distance', 'startTime'].some(k => k in p.fields && p.fields[k] !== race[k])) race.source = null;
       Object.assign(race, p.fields); break;
     }
@@ -186,7 +196,19 @@ export function applyAction(current, action) {
     case 'tickets.clear': race.tickets = []; race.result.confirmed = false; state.display.page = 0; break;
     case 'result.order': {
       const changed = JSON.stringify(race.result.order) !== JSON.stringify(p.order);
-      race.result = validateResult({ ...race.result, order: p.order, confirmed: changed ? false : race.result.confirmed, complete: changed ? false : race.result.complete }, race.headCount);
+      race.result = validateResult({ ...race.result, source: changed ? null : race.result.source, order: p.order, confirmed: changed ? false : race.result.confirmed, complete: changed ? false : race.result.complete }, race.headCount, race);
+      break;
+    }
+    case 'result.import': {
+      const data = validateJraResult(p.data, race);
+      assert(data.available, '確定結果はまだ取得できません');
+      assert(race.tickets.every(t => t.numbers.every(n => n <= data.headCount)) && race.picks.every(pick => pick.number <= data.headCount), '購入馬番・予想印とJRAの出走頭数が一致しません。レース設定を確認してください');
+      const adjustments = [...race.result.adjustments];
+      if (race.result.manualPayout !== null) adjustments.push({at:timestamp(),before:race.result.manualPayout,after:null,note:'JRA確定払戻金の取得による自動計算へ変更'});
+      race.headCount = data.headCount;
+      race.result = {...emptyResult(),confirmed:true,complete:true,order:data.order,dividends:data.dividends,adjustments,
+        source:{provider:'jra-result',date:race.date,venue:race.venue,number:race.number,url:data.sourceUrl,fetchedAt:data.fetchedAt}};
+      race.status = 'final';
       break;
     }
     case 'result.save': {

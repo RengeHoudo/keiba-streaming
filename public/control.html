@@ -6,7 +6,7 @@
   <header class="dock-brand"><span class="eyebrow">RENGE LIVE / RACING DESK</span><h1>競馬配信コントロール</h1><span class="brand-name">宝土蓮華</span></header>
   <div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection">接続中…</span><span id="sync-time"></span></div>
   <div id="notice" class="notice" role="status" hidden></div>
-  <section id="browser-note" class="browser-note" hidden><strong>ブラウザ版</strong><p>記録はこのブラウザに保存され、GitHubには送信されません。同じブラウザの別タブで配信画面と同期します。大切な記録はJSON保存でバックアップしてください。</p><p>JRAの予定レース情報は下の取得ボタンから利用できます。取得用APIには開催日だけを送ります。</p><p>OBSで配信する場合は<a href="https://github.com/RengeHoudo/keiba-streaming#ローカル版の起動" target="_blank" rel="noopener">ローカル版</a>をご利用ください。別のブラウザ・端末・OBSとは記録を共有しません。</p><button id="browser-demo" class="secondary">架空のサンプルで試す</button></section>
+  <section id="browser-note" class="browser-note" hidden><strong>ブラウザ版</strong><p>記録はこのブラウザに保存され、GitHubには送信されません。同じブラウザの別タブで配信画面と同期します。大切な記録はJSON保存でバックアップしてください。</p><p>JRAの予定レース情報と確定結果は下の取得ボタンから利用できます。取得用APIには開催日・開催場・R番号だけを送り、購入記録は送りません。</p><p>OBSで配信する場合は<a href="https://github.com/RengeHoudo/keiba-streaming#ローカル版の起動" target="_blank" rel="noopener">ローカル版</a>をご利用ください。別のブラウザ・端末・OBSとは記録を共有しません。</p><button id="browser-demo" class="secondary">架空のサンプルで試す</button></section>
   <section class="race-selector"><label for="race-select">配信するレース</label><div class="inline"><select id="race-select" aria-label="配信するレース"></select><button id="new-race" class="square" title="レースを追加" aria-label="レースを追加">＋</button></div><p id="race-meta" class="muted"></p><button data-open="jra-details" class="quiet jra-shortcut">JRAからレース情報を取得</button><p id="race-source" class="hint" hidden></p></section>
   <section class="quick-controls" aria-label="配信中の操作">
     <div class="section-label"><h2>レース状態</h2><span>ON AIR</span></div>
@@ -61,6 +61,12 @@
   </div></details>
 
   <details id="result-details"><summary>着順・的中判定・払戻<span class="summary-sub">配当未入力でも当たり・外れを確認</span></summary><div class="details-body">
+    <p id="jra-result-target" class="hint"></p>
+    <button id="jra-result-fetch" type="button" class="primary">JRAの結果を取得して払戻を計算</button>
+    <label class="check-label"><input id="jra-result-auto" type="checkbox">確定まで自動確認（60秒ごと・この画面の表示中）</label>
+    <p id="jra-result-message" class="hint" role="status">確定結果が取得できたら、着順・配当を保存して払戻と収支を確定します。既存の手動払戻は自動計算に置き換わります。購入記録は送信しません。</p>
+    <a id="jra-result-source" target="_blank" rel="noopener noreferrer" hidden>取得元のJRA結果</a>
+    <p class="hint">直近のJRA結果一覧に掲載された通常レースに対応。同着・取消・除外・競走中止・特別払戻等は自動確定せず、下の手動払戻で対応してください。未公開や取得失敗を0円として記録しません。</p>
     <form id="result-form"><div class="form-grid thirds"><label>1着<input name="first" type="number" min="1" max="18"></label><label>2着<input name="second" type="number" min="1" max="18"></label><label>3着<input name="third" type="number" min="1" max="18"></label></div>
       <button id="save-order" type="button" class="primary">着順だけ保存して判定</button>
       <p class="hint">1〜3着の馬番を入力すると下に判定を表示します。着順の保存だけでは払戻・収支を確定せず、的中演出も自動再生しません。同着・取消・返還は通常の着順判定の対象外です。</p>
