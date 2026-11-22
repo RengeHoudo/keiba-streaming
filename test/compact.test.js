@@ -11,7 +11,6 @@ const expandedKeys = rows => rows.flatMap(row => expandFormation(row.type, row.c
 function assertExact(tickets, rows) {
   const expanded = expandedKeys(rows);
   assert.deepEqual([...expanded].sort(), tickets.map(t => `${key(t.type, t.numbers)}:${t.amount}`).sort());
-  assert.equal(new Set(expanded).size, expanded.length);
   assert.ok(rows.every(r => r.notation.replace(/[①-⑱]/g, '00').length <= 32));
   assert.ok(rows.every(r => r.columns.filter(c => c.length > 1).length <= 1));
   assert.ok(rows.every(r => !r.notation.includes('BOX')));
@@ -58,15 +57,15 @@ test('馬単・3連単も相手をまとめ、着順と金額を混同しない'
   assertExact(tickets, rows);
 });
 
-test('架空入力例31点を17行・3ページへ圧縮、全券種と8,000円を保持', () => {
+test('架空入力例36点を21行・3ページへ圧縮、重複分と8,500円を保持', () => {
   const before = structuredClone(sample);
   const rows = compactTicketRows(sample); const pages = displayPages(sample, 'compact');
-  assert.equal(rows.length, 17); assert.equal(pages.length, 3);
-  assert.deepEqual(pages.map(p => p.compact.length), [8,8,1]);
+  assert.equal(rows.length, 21); assert.equal(pages.length, 3);
+  assert.deepEqual(pages.map(p => p.compact.length), [8,8,5]);
   assert.equal(COMPACT_ROWS_PER_PAGE, 8);
   assert.deepEqual(new Set(pages.flatMap(p => p.compact.map(r => r.type))), new Set(['wide', 'trio', 'trifecta']));
-  assert.equal(rows.reduce((s, r) => s + r.count, 0), 31);
-  assert.equal(rows.reduce((s, r) => s + r.total, 0), 8000);
+  assert.equal(rows.reduce((s, r) => s + r.count, 0), 36);
+  assert.equal(rows.reduce((s, r) => s + r.total, 0), 8500);
   assert.ok(rows.some(r => r.type === 'wide' && r.notation === '③ − ⑦ ⑩ ⑯'));
   assertExact(sample, rows); assert.deepEqual(sample, before);
 });

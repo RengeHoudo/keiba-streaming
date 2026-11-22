@@ -88,7 +88,7 @@ test('架空入力例のまとめ表示・自動切替設定をHTTPで更新し�
   const initial = await streamClient.next();
   assert.equal(initial.display.mode, 'compact'); assert.equal(initial.display.autoPage, true);
   const pages = displayPages(initial.races[0].tickets, initial.display.mode);
-  assert.deepEqual(pages.map(p => p.compact.length), [8,8,1]);
+  assert.deepEqual(pages.map(p => p.compact.length), [8,8,5]);
   const update = await action('display.update', { fields: { pageInterval: 5, page: 0 } });
   assert.equal(update.status, 200);
   const synced = await streamClient.next(); assert.deepEqual(synced, update.body);
@@ -97,7 +97,7 @@ test('架空入力例のまとめ表示・自動切替設定をHTTPで更新し�
   assert.equal(pause.status, 200);
   assert.equal(currentDisplayPage(pause.body.display, 3, pause.body.display.pageStartedAt + 60000), 2);
   const saved = await state();
-  assert.deepEqual(saved.races, initial.races); assert.equal(raceBalance(saved.races[0]).investment, 8000);
+  assert.deepEqual(saved.races, initial.races); assert.equal(raceBalance(saved.races[0]).investment, 8500);
   streamClient.close(); await app.close();
   const restarted = await createApp({ dataDir: directory }); t.after(() => restarted.close());
   const address = await restarted.listen(0);
@@ -105,14 +105,14 @@ test('架空入力例のまとめ表示・自動切替設定をHTTPで更新し�
   assert.deepEqual(restored, saved);
 });
 
-test('競合する同時更新の片方を409で拒否し、重複購入を防止', async t => {
+test('古い更新番号は409で拒否し、最新状態からの重複購入を許可', async t => {
   const { action, state } = await setup(t);
   const revision = (await state()).revision;
   const updates = await Promise.all([action('tickets.add', { tickets: sampleTickets() }, revision), action('tickets.add', { tickets: sampleTickets() }, revision)]);
   assert.deepEqual(updates.map(r => r.status).sort(), [200, 409]);
   assert.equal((await state()).races[0].tickets.length, 8);
-  assert.equal((await action('tickets.add', { tickets: sampleTickets() })).status, 400);
-  assert.equal((await state()).races[0].tickets.length, 8);
+  assert.equal((await action('tickets.add', { tickets: sampleTickets() })).status, 200);
+  assert.equal((await state()).races[0].tickets.length, 16);
 });
 test('削除の取り消し、JSON復元、CSVの式注入防止', async t => {
   const { base, action, state } = await setup(t);

@@ -7,20 +7,20 @@ import { initialState, applyAction } from '../src/state.js';
 const example = await readFile(new URL('./fixtures/paste-example-public.txt', import.meta.url), 'utf8');
 const additions = rows => rows.filter(r => r.status === 'add');
 
-test('架空の貼り付け例：31点追加・重複5行・既定額26点・8,000円', () => {
+test('架空の貼り付け例：36点追加（同じ買い目5行を含む）・既定額31点・8,500円', () => {
   const rows = parseTickets(example, { defaultAmount: 100 });
   assert.equal(rows.length, example.split(/\r?\n/).filter(line => line.trim()).length);
   assert.equal(rows.filter(r => r.status === 'error').length, 0);
   assert.equal(rows.filter(r => r.status === 'context').length, 7);
   assert.equal(rows.filter(r => r.status === 'ignored').length, 5);
-  assert.equal(rows.filter(r => r.status === 'duplicate').length, 5);
+  assert.equal(rows.filter(r => r.duplicate).length, 5);
   const added = additions(rows);
-  assert.equal(added.length, 31);
-  assert.equal(added.filter(r => r.usesDefault).length, 26);
-  assert.equal(added.reduce((sum, r) => sum + r.ticket.amount, 0), 8000);
-  assert.equal(added.filter(r => r.ticket.type === 'trio').length, 9);
+  assert.equal(added.length, 36);
+  assert.equal(added.filter(r => r.usesDefault).length, 31);
+  assert.equal(added.reduce((sum, r) => sum + r.ticket.amount, 0), 8500);
+  assert.equal(added.filter(r => r.ticket.type === 'trio').length, 11);
   assert.equal(added.filter(r => r.ticket.type === 'wide').length, 6);
-  assert.equal(added.filter(r => r.ticket.type === 'trifecta').length, 16);
+  assert.equal(added.filter(r => r.ticket.type === 'trifecta').length, 19);
   for (const [numbers, amount] of [[[2,8,11], 1500], [[4,8,15], 2500], [[7,11,13], 800]]) {
     assert.equal(added.find(r => key(r.ticket.type, r.ticket.numbers) === key('trio', numbers)).ticket.amount, amount);
   }
@@ -56,14 +56,17 @@ test('金額省略への対応後も不正な金額・周辺情報・券種不�
   assert.match(rows.at(-1).message, /券種が不明/);
   assert.equal(rows.filter(r => r.status === 'ignored').length, 7);
 });
-test('架空入力例からの購入登録で31点を保持し、再貼付は全36行を重複として表示', () => {
+test('架空入力例からの購入登録で36点を保持し、再貼付も全36行を追加できる', () => {
   const tickets = additions(parseTickets(example)).map(r => r.ticket);
   const state = applyAction(initialState(), { type: 'tickets.add', payload: { tickets } });
   const race = state.races[0];
-  assert.equal(race.tickets.length, 31); assert.equal(raceBalance(race).investment, 8000);
+  assert.equal(race.tickets.length, 36); assert.equal(raceBalance(race).investment, 8500);
   const repeat = parseTickets(example, { existing: race.tickets });
-  assert.equal(additions(repeat).length, 0);
-  assert.equal(repeat.filter(r => r.status === 'duplicate').length, 36);
+  assert.equal(additions(repeat).length, 36);
+  assert.equal(repeat.filter(r => r.duplicate).length, 36);
   assert.equal(repeat.filter(r => r.status === 'error').length, 0);
-  assert.equal(raceBalance(race).investment, 8000);
+  assert.equal(raceBalance(race).investment, 8500);
+  const again = applyAction(state, {type:'tickets.add',payload:{tickets:additions(repeat).map(r=>r.ticket)}});
+  assert.equal(again.races[0].tickets.length,72);
+  assert.equal(raceBalance(again.races[0]).investment,17000);
 });

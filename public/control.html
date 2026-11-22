@@ -7,7 +7,7 @@
   <div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection">接続中…</span><span id="sync-time"></span></div>
   <div id="notice" class="notice" role="status" hidden></div>
   <section id="browser-note" class="browser-note" hidden><strong>ブラウザ版</strong><p>記録はこのブラウザに保存され、GitHubには送信されません。同じブラウザの別タブで配信画面と同期します。大切な記録はJSON保存でバックアップしてください。</p><p>JRAの予定レース情報と確定結果は下の取得ボタンから利用できます。取得用APIには開催日・開催場・R番号だけを送り、購入記録は送りません。</p><p>OBSで配信する場合は<a href="https://github.com/RengeHoudo/keiba-streaming#ローカル版の起動" target="_blank" rel="noopener">ローカル版</a>をご利用ください。別のブラウザ・端末・OBSとは記録を共有しません。</p><button id="browser-demo" class="secondary">架空のサンプルで試す</button></section>
-  <section class="race-selector"><label for="race-select">配信するレース</label><div class="inline"><select id="race-select" aria-label="配信するレース"></select><button id="new-race" class="square" title="レースを追加" aria-label="レースを追加">＋</button></div><p id="race-meta" class="muted"></p><button data-open="jra-details" class="quiet jra-shortcut">JRAからレース情報を取得</button><p id="race-source" class="hint" hidden></p></section>
+  <section class="race-selector"><label for="race-select">配信するレース</label><div class="inline"><select id="race-select" aria-label="配信するレース"></select><button id="new-race" class="square" title="レースを追加" aria-label="レースを追加">＋</button></div><button id="new-win5" class="secondary">WIN5の記録を追加</button><p id="win5-targets" class="hint" hidden></p><p id="race-meta" class="muted"></p><button data-open="jra-details" class="quiet jra-shortcut">JRAからレース情報を取得</button><p id="race-source" class="hint" hidden></p></section>
   <section class="quick-controls" aria-label="配信中の操作">
     <div class="section-label"><h2>レース状態</h2><span>ON AIR</span></div>
     <div id="status-buttons" class="segments"><button data-status="before">発走前</button><button data-status="live">レース中</button><button data-status="pending">確定待ち</button><button data-status="final">確定</button></div>
@@ -45,14 +45,14 @@
 
   <details id="ticket-details"><summary>馬券を登録 <span class="summary-sub">馬番をクリック</span></summary><div class="details-body">
     <p class="hint">購入済み馬券の記録です。このアプリで馬券の購入はできません。</p>
-    <form id="ticket-form"><label>券種<select id="ticket-type"></select></label><p id="selection-help" class="hint"></p><div id="horse-buttons" class="horse-grid"></div><div id="selected-horses" class="selected-horses" aria-live="polite"></div><label>1点の購入額 (円)<input id="ticket-amount" type="number" min="100" max="100000000" step="100" value="100" required></label><button id="ticket-submit" class="primary" type="submit">購入記録に追加</button><button id="cancel-edit" type="button" class="quiet" hidden>編集をやめる</button></form>
-    <p class="hint">同じ券種・買い目の重複登録はできません。金額を増やす場合は既存の記録を編集してください。</p>
+    <form id="ticket-form"><label>券種<select id="ticket-type"></select></label><p id="selection-help" class="hint"></p><div id="horse-buttons" class="horse-grid"></div><div id="win5-horses" class="form-grid" hidden></div><div id="selected-horses" class="selected-horses" aria-live="polite"></div><label>1点の購入額 (円)<input id="ticket-amount" type="number" min="100" max="100000000" step="100" value="100" required></label><button id="ticket-submit" class="primary" type="submit">購入記録に追加</button><button id="cancel-edit" type="button" class="quiet" hidden>編集をやめる</button></form>
+    <p class="hint">同じ券種・買い目も別の購入記録として追加できます。追加した分を含めて購入額と払戻を集計します。</p>
   </div></details>
 
   <details id="paste-details"><summary>買い目を貼り付け <span class="summary-sub">プレビュー後に登録</span></summary><div class="details-body">
     <label for="paste-text">馬券テキスト</label><textarea id="paste-text" rows="7" placeholder="京都（日）11R３連複&#10;06 － 07 － 09  100円&#10;06-07-11 100円&#10;06 － 09 － 18"></textarea>
     <label>金額未記載行の既定額 (円)<input id="paste-default" type="number" min="100" step="100" value="100"></label><button id="paste-preview" class="secondary">解析プレビュー</button>
-    <div id="paste-results" aria-live="polite"></div><label id="paste-confirm-label" class="check-label" hidden><input id="paste-confirm" type="checkbox">エラー・重複・無視する行と、既定額の適用を確認しました</label><button id="paste-register" class="primary" hidden disabled>確認した買い目を登録</button>
+    <div id="paste-results" aria-live="polite"></div><label id="paste-confirm-label" class="check-label" hidden><input id="paste-confirm" type="checkbox">追加する全行（同じ買い目を含む）・エラー・無視する行・既定額の適用を確認しました</label><button id="paste-register" class="primary" hidden disabled>確認した買い目を登録</button>
   </div></details>
 
   <details id="records-details"><summary>登録済み馬券 <span id="records-count" class="summary-sub"></span></summary><div class="details-body">
@@ -62,18 +62,18 @@
 
   <details id="result-details"><summary>着順・的中判定・払戻<span class="summary-sub">配当未入力でも当たり・外れを確認</span></summary><div class="details-body">
     <p id="jra-result-target" class="hint"></p>
-    <button id="jra-result-fetch" type="button" class="primary">JRAの結果を取得して払戻を計算</button>
-    <label class="check-label"><input id="jra-result-auto" type="checkbox">確定まで自動確認（60秒ごと・この画面の表示中）</label>
-    <p id="jra-result-message" class="hint" role="status">確定結果が取得できたら、着順・配当を保存して払戻と収支を確定します。既存の手動払戻は自動計算に置き換わります。購入記録は送信しません。</p>
+    <button id="jra-result-fetch" type="button" class="primary">JRAの結果・WIN5情報を取得</button>
+    <label class="check-label"><input id="jra-result-auto" type="checkbox">このレースを発走後から確定まで自動確認（約60秒ごと）</label>
+    <p class="hint">購入記録があるレースは選択を切り替えても裏で確認します。タブを開いている間に動作し、端末のスリープ中・タブを閉じた後は停止します。発走時刻未入力の通常レースは、時刻を入力するか「レース中」「確定待ち」にしてください。</p><p id="jra-result-message" class="hint" role="status">確定結果が取得できたら、着順・配当を保存して払戻と収支を確定します。既存の手動払戻は自動計算に置き換わります。購入記録は送信しません。</p>
     <a id="jra-result-source" target="_blank" rel="noopener noreferrer" hidden>取得元のJRA結果</a>
     <p class="hint">直近のJRA結果一覧に掲載された通常レースに対応。同着・取消・除外・競走中止・特別払戻等は自動確定せず、下の手動払戻で対応してください。未公開や取得失敗を0円として記録しません。</p>
-    <form id="result-form"><div class="form-grid thirds"><label>1着<input name="first" type="number" min="1" max="18"></label><label>2着<input name="second" type="number" min="1" max="18"></label><label>3着<input name="third" type="number" min="1" max="18"></label></div>
+    <form id="result-form"><div class="form-grid thirds"><label><span>1着</span><input name="first" type="number" min="1" max="18"></label><label><span>2着</span><input name="second" type="number" min="1" max="18"></label><label><span>3着</span><input name="third" type="number" min="1" max="18"></label><label hidden><span>第4レースの勝馬</span><input name="fourth" type="number" min="1" max="18"></label><label hidden><span>第5レースの勝馬</span><input name="fifth" type="number" min="1" max="18"></label></div>
       <button id="save-order" type="button" class="primary">着順だけ保存して判定</button>
-      <p class="hint">1〜3着の馬番を入力すると下に判定を表示します。着順の保存だけでは払戻・収支を確定せず、的中演出も自動再生しません。同着・取消・返還は通常の着順判定の対象外です。</p>
+      <p id="order-help" class="hint">1〜3着の馬番を入力すると下に判定を表示します。着順の保存だけでは払戻・収支を確定せず、的中演出も自動再生しません。同着・取消・返還は通常の着順判定の対象外です。</p>
       <section class="judgement-panel" aria-label="購入馬券の的中判定"><p id="judgement-summary" role="status"></p><label>表示する判定<select id="judgement-filter"><option value="all">すべて</option><option value="win">的中のみ</option><option value="lose">不的中のみ</option><option value="pending">未判定のみ</option></select></label><div id="judgement-tickets"></div><div class="pagination"><button id="judgement-prev" type="button">前へ</button><span id="judgement-page"></span><button id="judgement-next" type="button">次へ</button></div></section>
       <label>100円あたりの確定配当<textarea name="dividends" rows="4" placeholder="3連複 06-07-09 1,200円&#10;単勝 06 250円"></textarea></label>
       <p class="hint">券種・買い目・配当を1行ずつ入力。全ての的中した購入記録の配当が必要です。オッズは入力しません。</p>
-      <label class="check-label"><input name="complete" type="checkbox">上位3着と必要な配当をすべて確認済み</label>
+      <label class="check-label"><input name="complete" type="checkbox"><span id="complete-label">上位3着と必要な配当をすべて確認済み</span></label>
       <label>手動払戻総額 (円・通常は空欄)<input name="manualPayout" type="number" min="0" max="1000000000000" step="1" placeholder="未入力"></label><p class="hint">同着・返還・例外は、このレース全体の払戻を上書きできます。0円は明示的な不的中・払戻なしの記録です。</p>
       <label>手動修正の理由・補足<input name="note" maxlength="300" placeholder="返還、同着、確認した払戻額など"></label>
       <label class="check-label"><input name="confirmed" type="checkbox">この結果を確定記録として保存</label><p class="hint">上部の「確定」は配信上の表示のみです。払戻の確定はこのチェックで行います。購入記録を変更すると再確認が必要になります。</p><button type="submit" class="primary">結果・払戻を保存</button>

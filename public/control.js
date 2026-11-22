@@ -19,7 +19,7 @@ let ticketPages = [];
 const race = () => state?.races.find(r => r.id === state.display.raceId);
 const judgementUI = setupJudgement({ getRace: race, send });
 const jraUI = setupJra({ getState: () => state, send, confirmAction, onImport: () => { fillRaceForm(); fillResultForm(); openDetails('race-details'); } });
-const jraResultUI = setupJraResult({ getState: () => state, send, onImport: () => { fillRaceForm(); fillResultForm(); } });
+const jraResultUI = setupJraResult({ getState: () => state, send, isBusy: () => busy, onImport: id => { if (race()?.id === id) { fillRaceForm(); fillResultForm(); renderHorseButtons(); } } });
 const fields = form => $(form).elements;
 const formField = (form, name) => fields(form).namedItem(name);
 const options = Object.entries(TYPES).map(([value, type]) => `<option value="${value}">${type.label}</option>`).join('');
@@ -38,9 +38,9 @@ function connectionStatus() {
   setText('#connection', busy ? '保存中…' : connected ? BROWSER_MODE ? 'このブラウザに保存済み' : '接続済み · 保存済み' : BROWSER_MODE ? 'ブラウザ保存領域を確認しています' : '再接続中 · 最後の状態を保持');
   $('#connection-dot').classList.toggle('connected', connected);
 }
-async function send(type, payload = {}, message = '保存しました') {
+async function send(type, payload = {}, message = '保存しました', {quiet = false} = {}) {
   if (!state) { notify('サーバーへの接続を待っています', true); return false; }
-  if (busy) { notify('保存処理中です。完了後にもう一度操作してください'); return false; }
+  if (busy) { if (!quiet) notify('保存処理中です。完了後にもう一度操作してください'); return false; }
   busy = true; connectionStatus();
   try {
     const response = await requestAction({ type, payload, expectedRevision: state.revision });
@@ -49,8 +49,8 @@ async function send(type, payload = {}, message = '保存しました') {
       if (result.state) render(result.state);
       throw new Error(result.error || '保存できませんでした');
     }
-    render(result); notify(message); return true;
-  } catch (error) { notify(error.message === 'Failed to fetch' ? '接続できません。保存されていません。サーバーの起動を確認してください。' : error.message, true); return false; }
+    render(result); if (!quiet) notify(message); return true;
+  } catch (error) { if (!quiet) notify(error.message === 'Failed to fetch' ? '接続できません。保存されていません。サーバーの起動を確認してください。' : error.message, true); return false; }
   finally { busy = false; connectionStatus(); }
 }
 function openDetails(id) { const element = document.getElementById(id); element.open = true; element.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
@@ -67,12 +67,20 @@ function invalidatePreview() {
 }
 function fillRaceForm() {
   const r = race();
+  for (const name of ['venue', 'number', 'headCount', 'surface', 'distance']) formField('#race-form', name).closest('label').hidden = r.kind === 'win5';
+  $('#pick-fields').closest('fieldset').hidden = r.kind === 'win5';
   for (const name of ['date', 'venue', 'number', 'headCount', 'name', 'surface', 'distance', 'startTime']) formField('#race-form', name).value = r[name] ?? '';
   ['◎', '○', '▲', '△', '☆'].forEach((mark, i) => { const input = formField('#race-form', `pick${i}`); input.value = r.picks.find(p => p.mark === mark)?.number ?? ''; input.max = r.headCount; });
 }
 function fillResultForm() {
   const r = race(); const result = r.result;
-  ['first', 'second', 'third'].forEach((name, i) => { formField('#result-form', name).value = result.order[i] ?? ''; formField('#result-form', name).max = r.headCount; });
+  ['first', 'second', 'third', 'fourth', 'fifth'].forEach((name, i) => {
+    const input = formField('#result-form', name); input.value = result.order[i] ?? ''; input.max = r.headCount;
+    input.closest('label').hidden = r.kind !== 'win5' && i >= 3;
+    input.previousElementSibling.textContent = r.kind === 'win5' ? `第${i + 1}レースの勝馬` : `${i + 1}着`;
+  });
+  $('#order-help').textContent = r.kind === 'win5' ? '第1〜第5レースの勝馬を対象レース順に入力。同じ馬番も指定できます。配当例：WIN5 01-01-03-04-05 100,000円' : '1〜3着を入力して判定します。着順の保存だけでは払戻・収支は確定しません。';
+  $('#complete-label').textContent = r.kind === 'win5' ? '5レースの勝馬と必要な配当をすべて確認済み' : '上位3着と必要な配当をすべて確認済み';
   formField('#result-form', 'dividends').value = result.dividends.map(d => `${TYPES[d.type].label} ${d.numbers.map(horse).join('-')} ${yen(d.amount)}`).join('\n');
   for (const name of ['complete', 'confirmed']) formField('#result-form', name).checked = result[name];
   for (const name of ['manualPayout', 'note']) formField('#result-form', name).value = result[name] ?? '';
@@ -86,9 +94,12 @@ function render(next) {
   const r = race();
   const changedRace = renderedRaceId !== r.id;
   if (preview && preview.revision !== state.revision) invalidatePreview();
-  $('#race-select').innerHTML = state.races.map(r => `<option value="${esc(r.id)}">${esc(`${r.date.slice(5)} ${r.venue || '未設定'} ${r.number}R ${r.name || 'レース名未入力'}`)}</option>`).join('');
+  $('#race-select').innerHTML = state.races.map(r => `<option value="${esc(r.id)}">${esc(`${r.date.slice(5)} ${r.kind === 'win5' ? 'WIN5' : `${r.venue || '未設定'} ${r.number}R`} ${r.name || 'レース名未入力'}`)}</option>`).join('');
   $('#race-select').value = r.id;
   setText('#race-meta', `${r.date} · ${r.surface}${r.distance ? r.distance + 'm' : ''} · ${r.headCount}頭${r.startTime ? ' · 発走 ' + r.startTime : ''}`);
+  if (r.kind === 'win5') setText('#race-meta', `${r.date} · WIN5 · 第1〜第5レース順${r.startTime ? ' · 最初の発走 ' + r.startTime : ''}`);
+  $('#win5-targets').hidden = r.kind !== 'win5';
+  setText('#win5-targets', r.win5Legs?.length ? r.win5Legs.map((l,i) => `${i + 1}: ${l.venue}${l.number}R ${l.startTime}`).join(' ／ ') : '対象5レースはJRAのWIN5情報取得で表示します。購入済み馬券の第1〜第5レース順に登録してください。');
   $('#race-source').hidden = !r.source;
   setText('#race-source', r.source ? 'JRA開催日程の予定情報 · 頭数・当日の変更は手動確認' : '');
   for (const button of document.querySelectorAll('[data-status]')) { const active = button.dataset.status === r.status; button.classList.toggle('active', active); button.setAttribute('aria-pressed', active); }
@@ -105,6 +116,7 @@ function render(next) {
   renderPageControls();
   if (changedRace) {
     editing = null; selected = []; recordsPage = 0; checkedTickets.clear();
+    $('#ticket-type').innerHTML = Object.entries(TYPES).filter(([type]) => (type === 'win5') === (r.kind === 'win5')).map(([value, type]) => `<option value="${value}">${type.label}</option>`).join('');
     fillRaceForm(); fillResultForm(); renderHorseButtons();
     $('#history-date').value = r.date;
     renderedRaceId = r.id;
@@ -127,6 +139,18 @@ function renderPageControls() {
 function renderHorseButtons() {
   const type = $('#ticket-type').value;
   const config = TYPES[type];
+  $('#horse-buttons').hidden = type === 'win5';
+  $('#win5-horses').hidden = type !== 'win5';
+  if (type === 'win5') {
+    setText('#selection-help', '第1〜第5レースの馬番をそれぞれ選択してください。同じ馬番も選べます。');
+    $('#win5-horses').innerHTML = Array.from({length:5}, (_,i) => {
+      const leg = race()?.win5Legs?.[i];
+      return `<label>第${i + 1}レース${leg ? ` · ${esc(leg.venue)}${leg.number}R` : ''}<select data-win5-leg="${i}"><option value="">馬番を選択</option>${Array.from({length:18},(_,j) => `<option value="${j+1}" ${selected[i] === j+1 ? 'selected' : ''}>${circledHorse(j+1)}</option>`).join('')}</select></label>`;
+    }).join('');
+    setText('#selected-horses', Array.from({length:5},(_,i) => selected[i] ? circledHorse(selected[i]) : '＿').join(' → '));
+    setText('#ticket-submit', editing ? '購入記録を更新' : '購入記録に追加'); $('#cancel-edit').hidden = !editing;
+    return;
+  }
   selected = selected.filter(n => n <= (race()?.headCount ?? 18)).slice(0, config.size);
   setText('#selection-help', config.ordered ? `${config.size}頭を着順どおりに選択してください（選択順を保存）` : `${config.size}頭を選択してください（順不同）`);
   $('#horse-buttons').innerHTML = Array.from({ length: 18 }, (_, i) => {
@@ -153,7 +177,7 @@ function renderBalances() {
   $('#day-balance').innerHTML = `<div class="balance-grid"><div><span>投資</span><strong>${yen(totals.investment)}</strong></div><div><span>確定済み払戻</span><strong>${yen(totals.payout)}</strong></div><div><span>${totals.pending ? '暫定収支' : '収支'}</span><strong>${yen(totals.profit)}</strong></div><div><span>払戻待ち</span><strong>${totals.pending}レース</strong></div></div>`;
   $('#race-history').innerHTML = state.races.filter(r => r.date === date).map(r => {
     const b = raceBalance(r);
-    return `<div class="history-row"><strong>${esc(`${r.venue || '未設定'} ${r.number}R ${r.name}`)}</strong><br><span>投資 ${yen(b.investment)} ／ 払戻 ${b.pending ? '未確定・未入力' : yen(b.payout)}</span></div>`;
+    return `<div class="history-row"><strong>${esc(`${r.kind === 'win5' ? 'WIN5' : `${r.venue || '未設定'} ${r.number}R`} ${r.name}`)}</strong><br><span>投資 ${yen(b.investment)} ／ 払戻 ${b.pending ? '未確定・未入力' : yen(b.payout)}</span></div>`;
   }).join('') || '<p class="hint">この日の記録はありません。</p>';
 }
 function wrap(fn) { return event => { try { Promise.resolve(fn(event)).catch(error => notify(error.message, true)); } catch (error) { notify(error.message, true); } }; }
@@ -181,6 +205,8 @@ document.addEventListener('click', wrap(async event => {
 }));
 $('#race-select').addEventListener('change', wrap(async () => { if (!await send('race.select', { raceId: $('#race-select').value })) $('#race-select').value = state.display.raceId; }));
 $('#new-race').addEventListener('click', wrap(async () => { if (await send('race.create', { date: race().date }, '新しいレースを作成しました')) openDetails('race-details'); }));
+$('#new-win5').addEventListener('click', wrap(async () => { if (await send('race.create', {date:race().date,kind:'win5'}, 'WIN5の記録を作成しました。開催日を確認して5レース順に馬番を登録してください')) openDetails('ticket-details'); }));
+$('#win5-horses').addEventListener('change', event => { if (event.target.dataset.win5Leg !== undefined) { selected[Number(event.target.dataset.win5Leg)] = Number(event.target.value); setText('#selected-horses',Array.from({length:5},(_,i) => selected[i] ? circledHorse(selected[i]) : '＿').join(' → ')); } });
 for (const [id, field] of [['tickets-visible', 'ticketsVisible'], ['balance-visible', 'balanceVisible'], ['effect-enabled', 'effectEnabled'], ['countdown', 'countdown']]) {
   $(`#${id}`).addEventListener('change', wrap(async () => { if (!await send('display.update', { fields: { [field]: $(`#${id}`).checked } })) $(`#${id}`).checked = state.display[field]; }));
 }
@@ -225,10 +251,11 @@ for (const id of ['paste-text', 'paste-default']) $(`#${id}`).addEventListener('
 $('#paste-preview').addEventListener('click', wrap(() => {
   if (!state) return;
   const rows = parseTickets($('#paste-text').value, { headCount: race().headCount, defaultAmount: Number($('#paste-default').value), existing: race().tickets });
+  for (const row of rows) if (row.ticket && (row.ticket.type === 'win5') !== (race().kind === 'win5')) { row.status = 'error'; row.message = '登録先のレース種類が違います。WIN5は専用の開催記録を選択してください。'; }
   const additions = rows.filter(r => r.status === 'add');
   preview = { rows, raceId: race().id, revision: state.revision };
   const destination = `${race().date} ${race().venue || '開催場未設定'} ${race().number}R ${race().name}`;
-  $('#paste-results').innerHTML = `<p class="preview-summary">登録先：${esc(destination)}<br>追加 ${additions.length}点・${yen(additions.reduce((sum, r) => sum + r.ticket.amount, 0))}<br>うち金額未記載 ${additions.filter(r => r.usesDefault).length}点（既定額を適用）<br>重複 ${rows.filter(r => r.status === 'duplicate').length} ／ 無視 ${rows.filter(r => r.status === 'ignored').length} ／ エラー ${rows.filter(r => r.status === 'error').length}</p><div class="preview-rows">${rows.map(r => `<div class="preview-row ${r.status}"><code>${r.line}: ${esc(r.raw)}</code>${esc(r.message)}</div>`).join('')}</div>`;
+  $('#paste-results').innerHTML = `<p class="preview-summary">登録先：${esc(destination)}<br>追加 ${additions.length}点・${yen(additions.reduce((sum, r) => sum + r.ticket.amount, 0))}<br>うち金額未記載 ${additions.filter(r => r.usesDefault).length}点（既定額を適用）<br>同じ買い目も追加 ${rows.filter(r => r.duplicate).length} ／ 無視 ${rows.filter(r => r.status === 'ignored').length} ／ エラー ${rows.filter(r => r.status === 'error').length}</p><div class="preview-rows">${rows.map(r => `<div class="preview-row ${r.status}"><code>${r.line}: ${esc(r.raw)}</code>${esc(r.message)}</div>`).join('')}</div>`;
   $('#paste-confirm-label').hidden = !additions.length; $('#paste-register').hidden = !additions.length;
   $('#paste-confirm').checked = false; $('#paste-register').disabled = true;
 }));

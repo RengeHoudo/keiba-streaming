@@ -11,10 +11,11 @@ function render(next) {
   if (state && next.revision < state.revision) return;
   state = next;
   const r = state.races.find(r => r.id === state.display.raceId);
-  setText('#overlay-venue', `${r.venue} ${r.number}R`.trim());
+  setText('#overlay-venue', r.kind === 'win5' ? 'WIN5' : `${r.venue} ${r.number}R`.trim());
   setText('#overlay-name', r.name);
   $('#overlay-meta').innerHTML = `${r.surface || r.distance ? `<span>${esc(r.surface)}${r.distance ? `${r.distance}m` : ''}</span>` : ''}${r.startTime ? `<span>${esc(r.startTime)}発走</span>` : ''}`;
-  setText('#overlay-date', `${r.date.slice(5).replace('-', '/')} ${r.headCount}頭`);
+  setText('#overlay-date', `${r.date.slice(5).replace('-', '/')} ${r.kind === 'win5' ? '5レース' : `${r.headCount}頭`}`);
+  if (r.kind === 'win5') $('#overlay-meta').innerHTML = r.win5Legs.map((l,i) => `<span>${i+1}: ${esc(l.venue)}${l.number}R</span>`).join('');
   setText('#overlay-status', STATUSES[r.status]); $('#overlay-status').className = `race-status ${r.status}`;
   $('#overlay-picks').innerHTML = r.picks.map(p => `<span>${p.mark} ${horse(p.number)}</span>`).join('');
   $('#overlay-picks').classList.toggle('many', r.picks.length >= 4);
@@ -42,8 +43,8 @@ function renderTicketPage() {
   else if (page.compact) $('#overlay-tickets').innerHTML = page.compact.map(row => `<div class="compact-entry"><div class="compact-entry-meta"><strong>${TYPES[row.type].label}</strong><span>${row.count === 1 ? yen(row.amount) : `${row.count}点・各${yen(row.amount)}`}</span></div><div class="compact-bet">${esc(row.notation)}</div></div>`).join('');
   else if (page.formation) {
     const f = page.formation;
-    $('#overlay-tickets').classList.toggle('dense', f.columns.some(c => c.length > 7));
-    $('#overlay-tickets').innerHTML = `<p class="formation-label">FORMATION / フォーメーション</p>${f.columns.map((column, i) => `<div class="formation-column"><span>${i + 1}列目</span><div class="formation-numbers">${column.map(n => `<span class="formation-number">${horse(n)}</span>`).join('')}</div></div>`).join('')}<p class="formation-math"><span>${f.count}点 × ${yen(f.amount)}</span><strong>= ${yen(f.total)}</strong></p>`;
+    $('#overlay-tickets').classList.toggle('dense', f.type === 'win5' || f.columns.some(c => c.length > 7));
+    $('#overlay-tickets').innerHTML = `<p class="formation-label">FORMATION / フォーメーション</p>${f.columns.map((column, i) => `<div class="formation-column"><span>${i + 1}${f.type === 'win5' ? 'レース' : '列目'}</span><div class="formation-numbers">${column.map(n => `<span class="formation-number">${horse(n)}</span>`).join('')}</div></div>`).join('')}<p class="formation-math"><span>${f.count}点 × ${yen(f.amount)}</span><strong>= ${yen(f.total)}</strong></p>`;
   } else $('#overlay-tickets').innerHTML = `${page.fallback ? '<p class="fallback-tag">正確な買い目を一覧で表示</p>' : ''}<table class="ticket-table ${page.fallback || page.tickets.some(t => t.amount >= 100000) ? 'compact' : ''}"><thead><tr><th>買い目</th><th>金額</th></tr></thead><tbody>${page.tickets.map(t => `<tr><td>${t.numbers.map(horse).join(TYPES[t.type].ordered ? ' → ' : ' − ')}</td><td>${yen(t.amount)}</td></tr>`).join('')}</tbody></table>`;
 }
 function tick() {

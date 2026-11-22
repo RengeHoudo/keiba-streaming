@@ -5,6 +5,7 @@ import { JRA_API_URL } from './jra-config.js';
 const jra = createJraClient({ endpoint: JRA_API_URL });
 export const getJraSchedule = date => jra.getSchedule(date);
 export const getJraResult = query => jra.getResult(query);
+export const getWin5Result = date => jra.getWin5Result(date);
 export const BROWSER_MODE = true;
 export const controlUrl = new URL('./index.html', import.meta.url).href;
 export const overlayUrl = new URL('./overlay.html', import.meta.url).href;

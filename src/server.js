@@ -7,9 +7,10 @@ import { applyAction, validateState } from './state.js';
 import { exportCsv } from './export.js';
 import { createJraProvider } from './jra.js';
 import { createJraResultProvider } from './jra-result.js';
+import { createWin5Provider } from './jra-win5.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export async function createApp({ dataDir = path.join(root, 'data'), jraProvider = createJraProvider(), jraResultProvider = createJraResultProvider() } = {}) {
+export async function createApp({ dataDir = path.join(root, 'data'), jraProvider = createJraProvider(), jraResultProvider = createJraResultProvider(), win5Provider = createWin5Provider() } = {}) {
   const storage = new Storage(dataDir);
   let state = await storage.load();
   let queue = Promise.resolve();
@@ -40,6 +41,10 @@ export async function createApp({ dataDir = path.join(root, 'data'), jraProvider
       if (req.headers['sec-fetch-site'] === 'cross-site' && !pageNavigation) return json(403, { error: '外部ページからの接続はできません' });
       if (req.method === 'GET' && url.pathname === '/api/state') return json(200, state);
       if (req.method === 'GET' && url.pathname === '/api/jra/races') return json(200, await jraProvider.getSchedule(url.searchParams.get('date')));
+      if (req.method === 'GET' && url.pathname === '/api/jra/win5') {
+        if ([...url.searchParams.keys()].join() !== 'date') return json(400, {error:'開催日だけを指定してください'});
+        return json(200, await win5Provider.getResult(url.searchParams.get('date')));
+      }
       if (req.method === 'GET' && url.pathname === '/api/jra/result') {
         const keys = ['date', 'venue', 'number'];
         if ([...url.searchParams.keys()].some(k => !keys.includes(k)) || keys.some(k => url.searchParams.getAll(k).length !== 1)) return json(400, {error:'開催日・開催場・レース番号を指定してください'});
@@ -99,6 +104,7 @@ export async function createApp({ dataDir = path.join(root, 'data'), jraProvider
         '/transport.js': ['public/transport.js', 'text/javascript'], '/export.js': ['src/export.js', 'text/javascript'],
         '/jra-client.js': ['src/jra-client.js', 'text/javascript'], '/calendar-url.js': ['src/calendar-url.js', 'text/javascript'],
         '/jra-result-data.js': ['src/jra-result-data.js', 'text/javascript'], '/jra-result-control.js': ['public/jra-result-control.js', 'text/javascript'],
+        '/jra-win5-data.js': ['src/jra-win5-data.js', 'text/javascript'], '/result-poller.js': ['src/result-poller.js', 'text/javascript'],
         '/domain.js': ['src/domain.js', 'text/javascript'], '/style.css': ['public/style.css', 'text/css'],
       };
       const route = routes[url.pathname];

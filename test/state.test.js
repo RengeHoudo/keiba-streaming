@@ -27,9 +27,18 @@ test('4段階のレース状態を保存・復元でき、切替だけでは馬�
   }
   assert.throws(() => act(s, 'race.status', { status: 'unknown' }), /状態が不正/);
 });
-test('重複のバッチは全体を拒否し、既存の金額を勝手に統合しない', () => {
+test('重複のバッチも別IDで保存し、編集・削除・復元で他の購入を変えない', () => {
   const s = sampleState(); const original = structuredClone(s);
-  assert.throws(() => act(s, 'tickets.add', { tickets: [{ type: 'win', numbers: [1], amount: 100 }, ...sampleTickets()] }), /登録済み/);
+  let next = act(s, 'tickets.add', { tickets: [{ type: 'win', numbers: [1], amount: 100 }, ...sampleTickets()] });
+  assert.equal(next.races[0].tickets.length,17);
+  assert.equal(new Set(next.races[0].tickets.map(t => t.id)).size,17);
+  assert.equal(raceBalance(next.races[0]).investment,1700);
+  const t = next.races[0].tickets.at(-1);
+  next = act(next,'ticket.update',{id:t.id,ticket:{...t,amount:300}});
+  assert.equal(next.races[0].tickets[7].amount,100);
+  next = act(next,'ticket.delete',{id:t.id});
+  assert.equal(next.races[0].tickets.length,16);
+  assert.deepEqual(validateState(JSON.parse(JSON.stringify(next))),next);
   assert.deepEqual(s, original);
 });
 test('表示モード・非表示中の的中演出・停止・再実行は記録と収支を変更しない', () => {

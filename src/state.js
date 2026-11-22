@@ -1,6 +1,7 @@
 import { TYPES, STATUSES, assert, integer, normalize, key, validateAmount, today, raceBalance } from './domain.js';
 import { calendarUrl } from './calendar-url.js';
 import { validateJraResult, validateResultSource, sameRace } from './jra-result-data.js';
+import { validateWin5Result, validateWin5Source, validateWin5Legs } from './jra-win5-data.js';
 
 const randomUUID = () => globalThis.crypto.randomUUID();
 const timestamp = () => new Date().toISOString();
@@ -20,20 +21,22 @@ function bool(value, name) { assert(typeof value === 'boolean', `${name}が不�
 function iso(value) { assert(typeof value === 'string' && value.length < 40 && !Number.isNaN(Date.parse(value)), '日時が不正です'); return value; }
 export const emptyResult = () => ({ confirmed: false, order: [], dividends: [], complete: false, manualPayout: null, note: '', adjustments: [] });
 export function newRace() {
-  return { id: randomUUID(), date: today(), venue: '', number: 1, name: '', surface: '芝', distance: null, startTime: '', headCount: 18, status: 'before', picks: [], tickets: [], result: emptyResult(), source: null };
+  return { id: randomUUID(), kind: 'race', win5Legs: [], autoResult: true, date: today(), venue: '', number: 1, name: '', surface: '芝', distance: null, startTime: '', headCount: 18, status: 'before', picks: [], tickets: [], result: emptyResult(), source: null };
 }
 export function initialState() {
   const race = newRace();
   return { version: 1, revision: 0, updatedAt: timestamp(), races: [race], display: { raceId: race.id, ticketsVisible: true, mode: 'compact', page: 0, autoPage: true, pageInterval: 10, pageStartedAt: Date.now(), balanceVisible: false, countdown: false, effectEnabled: true, effect: null } };
 }
 function validateResult(result, headCount, identity) {
+  const win5 = identity?.kind === 'win5';
   assert(result && typeof result === 'object', '結果が不正です');
-  assert(Array.isArray(result.order) && result.order.length <= 3, '着順は上位3頭までです');
+  assert(Array.isArray(result.order) && result.order.length <= (win5 ? 5 : 3), win5 ? 'WIN5は5レースの勝馬を指定してください' : '着順は上位3頭までです');
   result.order.forEach(n => integer(n, 1, headCount, '着順の馬番'));
-  assert(new Set(result.order).size === result.order.length, '着順に重複があります。同着等は手動払戻を使用してください');
+  assert(win5 || new Set(result.order).size === result.order.length, '着順に重複があります。同着等は手動払戻を使用してください');
   assert(Array.isArray(result.dividends) && result.dividends.length <= 100, '配当明細は100件以内です');
   const seen = new Set();
   const dividends = result.dividends.map(d => {
+    assert((d.type === 'win5') === win5, 'レースの種類と配当の券種が一致しません');
     const numbers = normalize(d.type, d.numbers, headCount);
     const k = key(d.type, numbers);
     assert(!seen.has(k), '配当明細に重複があります'); seen.add(k);
@@ -41,7 +44,12 @@ function validateResult(result, headCount, identity) {
   });
   const manualPayout = result.manualPayout === null ? null : integer(result.manualPayout, 0, 1000000000000, '手動払戻');
   let source = null;
-  if (result.source != null) {
+  if (result.source != null && win5) {
+    assert(result.source.provider === 'jra-win5' && result.source.date === identity.date, 'WIN5結果の開催日が一致しません');
+    source = {provider:'jra-win5',date:identity.date,url:validateWin5Source(result.source.url, identity.date),fetchedAt:iso(result.source.fetchedAt)};
+    assert(dividends.length === 1 && JSON.stringify(dividends[0].numbers) === JSON.stringify(result.order), 'WIN5の配当と勝馬が一致しません');
+    validateWin5Result({date:identity.date,available:true,legs:identity.win5Legs,order:result.order,dividend:dividends[0].amount,sourceUrl:source.url,fetchedAt:source.fetchedAt,notice:''},identity.date);
+  } else if (result.source != null) {
     assert(result.source.provider === 'jra-result' && identity && sameRace(result.source, identity), '結果のレースが一致しません');
     source = {provider:'jra-result',date:identity.date,venue:identity.venue,number:identity.number,url:validateResultSource(result.source.url, identity),fetchedAt:iso(result.source.fetchedAt)};
     validateJraResult({...identity,available:true,headCount,order:result.order,dividends,sourceUrl:source.url,fetchedAt:source.fetchedAt,notice:''},identity);
@@ -56,6 +64,9 @@ function validateResult(result, headCount, identity) {
 }
 function validateRace(r) {
   assert(r && typeof r === 'object', 'レースが不正です');
+  const kind = r.kind ?? 'race';
+  assert(['race','win5'].includes(kind), 'レースの種類が不正です');
+  const win5Legs = kind === 'win5' && r.win5Legs?.length ? validateWin5Legs(r.win5Legs) : [];
   const headCount = integer(r.headCount, 3, 18, '頭数');
   assert(Object.hasOwn(STATUSES, r.status), '状態が不正です');
   assert(['芝', 'ダート', '障害', ''].includes(r.surface), 'コース種別が不正です');
@@ -67,12 +78,10 @@ function validateRace(r) {
   });
   assert(new Set(picks.map(p => p.mark)).size === picks.length && new Set(picks.map(p => p.number)).size === picks.length, '予想印・馬番が重複しています');
   assert(Array.isArray(r.tickets) && r.tickets.length <= 2000, '1レースの購入記録は2000点までです');
-  const seen = new Set();
   const ids = new Set();
   const tickets = r.tickets.map(t => {
+    assert((t.type === 'win5') === (kind === 'win5'), 'WIN5は専用の開催記録に登録してください');
     const numbers = normalize(t.type, t.numbers, headCount);
-    const k = key(t.type, numbers);
-    assert(!seen.has(k), '買い目が重複しています'); seen.add(k);
     assert(!ids.has(t.id), '馬券IDが重複しています'); ids.add(t.id);
     assert(['manual', 'paste'].includes(t.source), '登録元が不正です');
     return { id: id(t.id), type: t.type, numbers, amount: validateAmount(t.amount), source: t.source, createdAt: iso(t.createdAt), updatedAt: iso(t.updatedAt) };
@@ -83,6 +92,7 @@ function validateRace(r) {
     source = { provider: 'jra-calendar', url: r.source.url, fetchedAt: iso(r.source.fetchedAt) };
   }
   return {
+    kind, win5Legs, autoResult: r.autoResult === undefined ? true : bool(r.autoResult, '自動結果取得'),
     id: id(r.id), date: date(r.date), venue: text(r.venue, 16, '開催場'), number: integer(r.number, 1, 12, 'R番号'),
     name: text(r.name, 40, 'レース名'), surface: r.surface, distance: r.distance === null ? null : integer(r.distance, 100, 10000, '距離'),
     startTime: r.startTime, headCount, status: r.status, picks, tickets, result: validateResult(r.result, headCount, r), source,
@@ -123,6 +133,7 @@ export function applyAction(current, action) {
     case 'race.create': {
       const next = newRace();
       if (p.date !== undefined) next.date = date(p.date);
+      if (p.kind === 'win5') Object.assign(next, {kind:'win5',venue:'WIN5',name:'WIN5',surface:''});
       state.races.push(next); state.display.raceId = next.id; state.display.page = 0; break;
     }
     case 'race.select': state.display.raceId = race.id; state.display.page = 0; break;
@@ -130,19 +141,20 @@ export function applyAction(current, action) {
       const f = p.fields;
       assert(f && Object.keys(f).every(k => ['date', 'venue', 'number', 'name', 'surface', 'distance', 'startTime'].includes(k)), '取り込むレース情報が不正です');
       assert(['札幌', '函館', '福島', '新潟', '東京', '中山', '中京', '京都', '阪神', '小倉'].includes(f.venue), '中央競馬の開催場を選択してください');
-      const existing = state.races.find(r => r.date === f.date && r.venue === f.venue && r.number === f.number);
+      const existing = state.races.find(r => r.kind !== 'win5' && r.date === f.date && r.venue === f.venue && r.number === f.number);
       const target = existing ?? newRace();
       Object.assign(target, f, { source: p.source });
       if (!existing) state.races.push(target);
       state.display.raceId = target.id; state.display.page = 0; break;
     }
     case 'race.update': {
-      const allowed = ['date', 'venue', 'number', 'name', 'surface', 'distance', 'startTime', 'headCount', 'picks'];
+      const allowed = ['date', 'venue', 'number', 'name', 'surface', 'distance', 'startTime', 'headCount', 'picks', 'autoResult'];
       assert(p.fields && typeof p.fields === 'object', 'レース情報がありません');
       assert(Object.keys(p.fields).every(k => allowed.includes(k)), '更新できない項目です');
       if ('headCount' in p.fields && p.fields.headCount !== race.headCount) race.result.confirmed = false;
       if (['date', 'venue', 'number', 'headCount'].some(k => k in p.fields && p.fields[k] !== race[k])) {
         delete race.result.source; race.result.confirmed = false;
+        if (race.kind === 'win5') race.win5Legs = [];
       }
       if (['date', 'venue', 'number', 'name', 'surface', 'distance', 'startTime'].some(k => k in p.fields && p.fields[k] !== race[k])) race.source = null;
       Object.assign(race, p.fields); break;
@@ -168,12 +180,8 @@ export function applyAction(current, action) {
     case 'effect.stop': state.display.effect = null; break;
     case 'tickets.add': {
       assert(Array.isArray(p.tickets) && p.tickets.length > 0 && p.tickets.length <= 2000, '登録する買い目を指定してください');
-      const seen = new Set(race.tickets.map(t => key(t.type, t.numbers)));
       for (const t of p.tickets) {
         const numbers = normalize(t.type, t.numbers, race.headCount);
-        const k = key(t.type, numbers);
-        assert(!seen.has(k), `${TYPES[t.type].label} ${numbers.join('-')} は登録済みです。既存の金額を編集してください`);
-        seen.add(k);
         race.tickets.push({ id: randomUUID(), type: t.type, numbers, amount: validateAmount(t.amount), source: t.source ?? 'manual', createdAt: timestamp(), updatedAt: timestamp() });
       }
       race.result.confirmed = false; break;
@@ -200,6 +208,8 @@ export function applyAction(current, action) {
       break;
     }
     case 'result.import': {
+      assert(race.kind !== 'win5', 'WIN5専用の結果取得を使用してください');
+      if (p.expectedResult !== undefined) assert(JSON.stringify(race.result) === p.expectedResult, '取得中に結果が更新されました。次回再確認します');
       const data = validateJraResult(p.data, race);
       assert(data.available, '確定結果はまだ取得できません');
       assert(race.tickets.every(t => t.numbers.every(n => n <= data.headCount)) && race.picks.every(pick => pick.number <= data.headCount), '購入馬番・予想印とJRAの出走頭数が一致しません。レース設定を確認してください');
@@ -211,9 +221,25 @@ export function applyAction(current, action) {
       race.status = 'final';
       break;
     }
+    case 'win5.import': {
+      assert(race.kind === 'win5', 'WIN5の記録を選択してください');
+      if (p.expectedResult !== undefined) assert(JSON.stringify(race.result) === p.expectedResult, '取得中に結果が更新されました。次回再確認します');
+      const data = validateWin5Result(p.data, race.date);
+      if (data.legs) {
+        if (race.win5Legs?.length && race.tickets.length) assert(race.win5Legs.every((l,i) => l.venue === data.legs[i].venue && l.number === data.legs[i].number), 'WIN5対象レースの並びが変わっています。購入内容と公式結果を確認してください');
+        race.win5Legs = data.legs; race.startTime = data.legs.map(l => l.startTime).sort()[0];
+      }
+      if (!data.available) break;
+      const adjustments = [...race.result.adjustments];
+      if (race.result.manualPayout !== null) adjustments.push({at:timestamp(),before:race.result.manualPayout,after:null,note:'JRA WIN5確定払戻金による自動計算へ変更'});
+      race.result = {...emptyResult(),confirmed:true,complete:true,order:data.order,dividends:[{type:'win5',numbers:data.order,amount:data.dividend}],adjustments,
+        source:{provider:'jra-win5',date:race.date,url:data.sourceUrl,fetchedAt:data.fetchedAt}};
+      race.status = 'final';
+      break;
+    }
     case 'result.save': {
       const before = race.result.manualPayout;
-      const next = validateResult({ ...p.result, adjustments: race.result.adjustments }, race.headCount);
+      const next = validateResult({ ...p.result, adjustments: race.result.adjustments }, race.headCount, race);
       if (before !== next.manualPayout) {
         assert(next.note.length > 0, '手動払戻の変更理由を入力してください');
         next.adjustments.push({ at: timestamp(), before, after: next.manualPayout, note: next.note });

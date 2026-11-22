@@ -7,6 +7,7 @@ export const TYPES = {
   exacta: { label: '馬単', size: 2, ordered: true },
   trio: { label: '3連複', size: 3, ordered: false },
   trifecta: { label: '3連単', size: 3, ordered: true },
+  win5: { label: 'WIN5', size: 5, ordered: true },
 };
 export const STATUSES = { before: '発走前', live: 'レース中', pending: '確定待ち', final: '確定' };
 export const FALLBACK = 'この買い目はフォーメーションに正確に変換できないため、一覧表示します';
@@ -23,7 +24,7 @@ export function normalize(type, numbers, headCount = 18) {
   assert(Object.hasOwn(TYPES, type), '券種が不正です');
   assert(Array.isArray(numbers) && numbers.length === TYPES[type].size, `${TYPES[type].label}は${TYPES[type].size}頭を指定してください`);
   numbers.forEach(n => integer(n, 1, headCount, '馬番'));
-  assert(new Set(numbers).size === numbers.length, '同じ馬番は1つの買い目に指定できません');
+  assert(type === 'win5' || new Set(numbers).size === numbers.length, '同じ馬番は1つの買い目に指定できません');
   return TYPES[type].ordered ? [...numbers] : [...numbers].sort((a, b) => a - b);
 }
 export function key(type, numbers) { return `${type}:${normalize(type, numbers).join('-')}`; }
@@ -49,7 +50,7 @@ export function parseTickets(text, { headCount = 18, defaultAmount = 100, existi
   let contextType = null;
   const seen = new Set(existing.map(t => key(t.type, t.numbers)));
   return text.split(/\r?\n/).flatMap((raw, index) => {
-    const line = normalizeText(raw);
+    const line = normalizeText(raw).replace(/win5/gi, 'WIN5');
     if (!line) return [];
     const row = { line: index + 1, raw, status: 'error', message: '' };
     const alias = typeAliases.find(([label]) => line.includes(label));
@@ -72,7 +73,7 @@ export function parseTickets(text, { headCount = 18, defaultAmount = 100, existi
     }
     // Right arrows describe the entered order; never reverse or expand it.
     candidate = candidate.replace(/->|[→⇒➜➡]/g, '-');
-    const match = candidate.match(/^(\d{1,2}(?:\s*-\s*\d{1,2}){0,2})(?:\s+([\d,]+)\s*円?)?$/);
+    const match = candidate.match(/^(\d{1,2}(?:\s*-\s*\d{1,2}){0,4})(?:\s+([\d,]+)\s*円?)?$/);
     if (!match) {
       // An unsupported new header must not leave the preceding bet type active.
       if (alias) contextType = null;
@@ -86,9 +87,9 @@ export function parseTickets(text, { headCount = 18, defaultAmount = 100, existi
       validateAmount(amount);
       const ticket = { type, numbers, amount, source: 'paste' };
       const id = key(type, numbers);
-      if (seen.has(id)) return [{ ...row, ticket, status: 'duplicate', message: '重複：追加しません（既存金額も変更しません）' }];
+      const duplicate = seen.has(id);
       seen.add(id);
-      return [{ ...row, ticket, status: 'add', usesDefault: !match[2], message: match[2] ? '追加' : `金額未記載：既定額${yen(amount)}を適用（確認必須）` }];
+      return [{ ...row, ticket, status: 'add', duplicate, usesDefault: !match[2], message: `${duplicate ? '同じ買い目を別の購入記録として追加。' : ''}${match[2] ? '追加' : `金額未記載：既定額${yen(amount)}を適用（確認必須）`}` }];
     } catch (error) { return [{ ...row, message: error.message }]; }
   });
 }
@@ -103,7 +104,7 @@ export function expandFormation(type, columns) {
   const result = new Map();
   function visit(prefix, index) {
     if (index === columns.length) {
-      if (new Set(prefix).size !== prefix.length) return;
+      if (type !== 'win5' && new Set(prefix).size !== prefix.length) return;
       const numbers = normalize(type, prefix);
       result.set(key(type, numbers), numbers);
       return;
@@ -127,7 +128,7 @@ export function toFormation(tickets) {
   const candidates = [];
   const sortedUnique = values => [...new Set(values)].sort((a, b) => a - b);
   const all = sortedUnique(tickets.flatMap(t => t.numbers));
-  candidates.push(Array.from({ length: size }, () => all)); // BOX
+  if (type !== 'win5') candidates.push(Array.from({ length: size }, () => all)); // BOX
   if (TYPES[type].ordered) candidates.push(Array.from({ length: size }, (_, i) => sortedUnique(tickets.map(t => t.numbers[i]))));
   else {
     candidates.push(Array.from({ length: size }, (_, i) => sortedUnique(tickets.map(t => normalize(type, t.numbers)[i]))));
@@ -156,6 +157,7 @@ export function toFormation(tickets) {
     }
   }
   const valid = candidates.filter(cols => cols.every(c => c.length)).filter(cols => {
+    if (type === 'win5' && cols.reduce((total, column) => total * column.length, 1) !== target.size) return false;
     const expanded = expandFormation(type, cols);
     return expanded.length === target.size && expanded.every(n => target.has(key(type, n)));
   });
@@ -211,6 +213,14 @@ export function compactTicketRows(tickets) {
   return ticketGroups(tickets).flatMap(group => {
     const { type, amount } = group;
     const target = new Set(group.tickets.map(t => key(type, t.numbers)));
+    if (target.size < group.tickets.length) {
+      const layers = []; const occurrences = new Map();
+      for (const ticket of group.tickets) {
+        const id = key(type, ticket.numbers); const index = occurrences.get(id) ?? 0;
+        (layers[index] ??= []).push(ticket); occurrences.set(id, index + 1);
+      }
+      return layers.flatMap(compactTicketRows);
+    }
     const canonical = group.tickets.map(t => normalize(type, t.numbers)).sort((a, b) => a[0] - b[0] || (a[1] ?? 0) - (b[1] ?? 0) || (a[2] ?? 0) - (b[2] ?? 0));
     const frequency = new Map();
     canonical.flat().forEach(n => frequency.set(n, (frequency.get(n) ?? 0) + 1));
@@ -255,6 +265,10 @@ export function displayPages(tickets, mode) {
   });
 }
 export function isWinning(type, numbers, order, headCount = 18) {
+  if (type === 'win5') {
+    if (!Array.isArray(order) || order.length !== 5 || order.some(n => !Number.isInteger(n) || n < 1 || n > 18)) return null;
+    return normalize(type, numbers).every((n, i) => n === order[i]);
+  }
   if (!Array.isArray(order) || order.length !== 3 || new Set(order).size !== order.length) return null;
   if (order.some(n => !Number.isInteger(n) || n < 1 || n > headCount)) return null;
   const n = normalize(type, numbers, headCount);
@@ -278,11 +292,11 @@ export function judgeTickets(tickets, order, headCount = 18) {
 }
 export function parseDividends(text, headCount = 18) {
   return text.split(/\r?\n/).flatMap((raw, index) => {
-    const line = normalizeText(raw);
+    const line = normalizeText(raw).replace(/win5/gi, 'WIN5');
     if (!line) return [];
     const alias = typeAliases.find(([label]) => line.startsWith(label));
     assert(alias, `配当${index + 1}行目：券種を入力してください`);
-    const match = line.slice(alias[0].length).trim().match(/^(\d{1,2}(?:\s*-\s*\d{1,2}){0,2})\s+(\d+|\d{1,3}(?:,\d{3})+)\s*円$/);
+    const match = line.slice(alias[0].length).trim().match(/^(\d{1,2}(?:\s*-\s*\d{1,2}){0,4})\s+(\d+|\d{1,3}(?:,\d{3})+)\s*円$/);
     assert(match, `配当${index + 1}行目：「3連複 06-07-09 1,200円」の形式で入力してください`);
     return [{ type: alias[1], numbers: normalize(alias[1], match[1].split(/\s*-\s*/).map(Number), headCount), amount: integer(Number(match[2].replaceAll(',', '')), 1, 1000000000, '配当') }];
   });
@@ -292,7 +306,7 @@ export function raceBalance(race) {
   const r = race.result;
   if (!r.confirmed) return { investment, payout: null, profit: null, pending: true };
   if (r.manualPayout !== null) return { investment, payout: r.manualPayout, profit: r.manualPayout - investment, pending: false };
-  if (!r.complete || r.order.length < 3) return { investment, payout: null, profit: null, pending: true };
+  if (!r.complete || r.order.length !== (race.kind === 'win5' ? 5 : 3)) return { investment, payout: null, profit: null, pending: true };
   let payout = 0;
   for (const t of race.tickets) {
     const win = isWinning(t.type, t.numbers, r.order, race.headCount);

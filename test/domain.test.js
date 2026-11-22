@@ -27,13 +27,13 @@ test('日本語の8点サンプルを正規化し800円でプレビュー', asyn
 test('金額未記載・周辺情報・不正行・重複が静かに消えない', () => {
   const rows = parseTickets('京都（日）１１Ｒ３連複\n０６ － ０７ ー ０９　１００円\n06-09-18\n09-07-06 200円\n締切時刻 15:40\nオッズ 06-07-09 100円\n投票セット 01\n06-07-19 100円\n06-07-11 150円\n06-07-13 1,00円\n06-06-09 100円\n不明な文字', { defaultAmount: 200 });
   assert.equal(rows.length, 12);
-  assert.equal(rows.filter(r => r.status === 'add').length, 2);
+  assert.equal(rows.filter(r => r.status === 'add').length, 3);
   assert.equal(rows.find(r => r.usesDefault).ticket.amount, 200);
   assert.equal(rows.filter(r => r.status === 'ignored').length, 3);
-  assert.equal(rows.filter(r => r.status === 'duplicate').length, 1);
+  assert.equal(rows.filter(r => r.duplicate).length, 1);
   assert.equal(rows.filter(r => r.status === 'error').length, 5);
   assert.equal(parseTickets('06-07-09 100円')[0].status, 'error');
-  assert.equal(parseTickets('3連複\n06-07-09 100円', { existing: sampleTickets() })[1].status, 'duplicate');
+  assert.equal(parseTickets('3連複\n06-07-09 100円', { existing: sampleTickets() })[1].status, 'add');
   assert.equal(parseTickets('馬単 06-07 100円\n馬単 07-06 100円').filter(r => r.status === 'add').length, 2);
   const unsupported = parseTickets('馬単\n3連複 未対応の購入方式\n06-07 100円');
   assert.equal(unsupported[2].status, 'error');

@@ -41,7 +41,7 @@ export function validateJraResult(input, query) {
     seen.add(k);
     return { type: d.type, numbers, amount: integer(d.amount, 1, 1000000000, '100円あたり払戻金') };
   });
-  for (const type of Object.keys(TYPES)) {
+  for (const type of Object.keys(TYPES).filter(type => type !== 'win5')) {
     const count = type === 'place' ? (headCount <= 7 ? 2 : 3) : type === 'wide' ? 3 : 1;
     assert(dividends.filter(d => d.type === type).length === count, '券種ごとの確定払戻金が不足しています');
   }
